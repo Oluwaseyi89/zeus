@@ -2,8 +2,7 @@
 
 [![Scarb](https://img.shields.io/badge/Scarb-v2.6.5-orange)](https://swmansion.com/scarb/)
 [![Starknet](https://img.shields.io/badge/Starknet-v0.13.1-blue)](https://www.starknet.io/)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![CI](https://img.shields.io/badge/CI-Passing-brightgreen)]()
+
 
 This package contains the Cairo / Starknet smart contracts, generated ABIs and deployment helpers used by the Zeus protocol. It implements the protocol primitives (private orderbook, ZK verification, token wrapping, vaults and bridges) and exposes ABIs consumed by the backend (`zeus_service`) and client tooling.
 
