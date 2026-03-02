@@ -1,79 +1,86 @@
-++ Begin Content
 # Zeus Contracts
 
-> Cairo / Starknet smart contracts and deployment helpers for the Zeus protocol.
+This package contains the Cairo / Starknet smart contracts, generated ABIs and deployment helpers used by the Zeus protocol. It implements the protocol primitives (private orderbook, ZK verification, token wrapping, vaults and bridges) and exposes ABIs consumed by the backend (`zeus_service`) and client tooling.
 
-This package contains the Cairo contracts, ABI artifacts, and helper scripts used by the Zeus backend and apps.
+Key locations
 
-## Quick summary
-- Contracts are authored for Cairo (Starknet) and managed with `Scarb` + `snforge`/`starknet-foundry` compatibility.
-- Build artifacts are generated under `target/` and ABIs are available in `abis/`.
-- Deployment helpers exist in `scripts/deploy.py` (calls `starkli` to declare & deploy contract classes).
+- `src/contracts/` — source Cairo contracts (core, bridges, tokens, mock).
+- `abis/` — generated ABI JSONs consumed by `zeus_service`.
+- `scripts/deploy.py` — deployment helper that calls a Starknet CLI (e.g. `starkli`) to declare and deploy.
+- `Scarb.toml`, `snfoundry.toml` — build / tool config for Scarb and Foundry-style workflows.
 
-## Prerequisites
-- Scarb (https://docs.swmansion.com/scarb/) — package manager for Cairo projects.
-- Python 3.10+ (for `scripts/deploy.py` and helper tooling).
-- `starkli` / Starknet CLI or Foundry-compatible tooling for declare/deploy operations.
-- (Optional) Docker if you want to run a local devnet or isolated toolchain.
+Quick build & deploy
 
-Notes: `Scarb.toml` is configured to allow prebuilt plugins (`snforge_std`) so installing Rust is optional for some workflows.
+1. Build contracts: `scarb build`
+2. Generated artifacts and ABIs appear under `target/` and `abis/`.
+3. Deploy using: `python3 scripts/deploy.py --network <name>` (script wraps declare/deploy).
 
-## Common commands
+Architectural overview (contracts)
 
-From the `zeus_contracts` directory:
+Core contracts (src/contracts/core)
+- `ZKOrderBook.cairo` — privacy-preserving orderbook. Stores encrypted commitments, nullifiers, and match records. Relayers submit ZK proofs to match orders; contract maintains order lifecycle (place, cancel, match, cleanup) and emits compact events consumed by backend for UI deltas.
+- `ZKAtomicSwapVerifier.cairo` — on-chain proof registry and verifier facade. Accepts proof submissions, performs (or simulates) verification, manages circuit keys and nullifiers to prevent replays. Exposes APIs used by `StarknetAtomicBridge` and `ZKOrderBook` to validate matching/swap proofs.
+- `ZKAtomicSwapVerifier` responsibilities:
+	- Store proof metadata and verification results.
+	- Manage supported circuit verifier keys and relayer roles.
+	- Provide utility methods used by `StarknetAtomicBridge` and `ZKOrderBook` to validate matching/swap proofs.
+- `SwapEscrow.cairo` — ERC-20 escrow for atomic swaps on Starknet. Manages swap lifecycle for STRK/ZK-wrapped tokens: initiate, fund, complete, refund, relayer flows, fee distribution and token transfer helpers.
+- `BTCVault.cairo` — Starknet-side vault tracking Bitcoin UTXOs, user deposits, guardian-controlled withdrawals, and swap locks. Works with `BitcoinBridge` and `StarknetAtomicBridge` to lock/unlock/spend UTXOs for cross-chain swaps.
 
-```bash
-# install scarb (see scarb docs for platform-specific instructions)
-# build contract classes and artifacts
-scarb build
+Bridge & token contracts (src/contracts/bridges, src/contracts/tokens)
+- `BitcoinBridge.cairo` — bridge entry point for BTC deposits coming from off-chain relayers: validates proofs/merkle data, records UTXOs, interacts with `BTCVault` and mints `ZKBTC` via `ZKBTC.bridge_mint`. Also handles withdrawal initiation / guardian signing flow.
+- `StarknetAtomicBridge.cairo` — higher-level cross-chain swap coordinator. Orchestrates bridge swaps (BTC<->STRK), interacts with `BTCVault`, `SwapEscrow`, `ZKAtomicSwapVerifier`, and `ZKBTC`. Handles swap initiation, fund, verification and completion (including relayer-assisted flows).
+- `ZKBTC.cairo` — ERC-20-like token representing Bitcoin on Starknet. Supports mint/burn (native and bridge), bridge whitelist, mint/burn fees and caps. `BTCVault` and `BitcoinBridge` use `ZKBTC.bridge_mint` / `native_burn` for custody flows.
+- `ZeusGovToken.cairo` — governance token contract (simple ERC-20 with owner/upgradeable hooks) used for protocol governance and administrative roles.
 
-# build specific target (if needed)
-scarb build --target starknet-contract
+Mocks (for tests)
+- `mock/*` — empty or test helper contracts used in unit / integration tests (e.g., `MockBitcoinOracle`, `MockERC20`, `MockZKProver`). These provide deterministic behavior during local testing.
 
-# run the deploy helper (interactive)
-python3 scripts/deploy.py
-```
+How `zeus_service` interacts with contracts
 
-For advanced testing using Starknet Foundry (`snfoundry`), consult `snfoundry.toml` and the Foundry docs.
+- ABI consumption: `zeus_service` loads ABIs from `zeus_contracts/abis/` (or from deployed addresses configured via environment variables) and constructs Starknet client dispatchers.
+- Event indexing: the backend watches Starknet events (Swap events, Bridge events, Orderbook events, Vault events) to update database state and emit compact real-time deltas to mobile clients (`swap.delta`, `order.delta`, `vault.delta`, `notification`).
+- On-chain calls: administrative or relayer operations (e.g., whitelist relayers, submit/verify proofs, execute withdrawals) are performed by `zeus_service` or by external relayer processes it orchestrates. The service uses private keys (or an account abstraction) for privileged calls.
+- Proof orchestration: the backend accepts ZK proof submissions from off-chain prove workers (or the app), then relays proofs to `ZKAtomicSwapVerifier` or submits a proof job and records the result when verification completes.
+- ABI & address configuration: after deployment, update `zeus_service/src/config` (or environment variables) with deployed contract addresses and ensure ABIs are available under `zeus_service/src/abis/` or referenced path.
 
-## Project structure
+How `zeus_app` (mobile) interacts with contracts (indirectly)
 
-```
-zeus_contracts/
-├─ Scarb.toml
-├─ snfoundry.toml
-├─ Scarb.lock
-├─ scripts/
-│  └─ deploy.py
-├─ abis/                # generated contract ABIs
-├─ src/
-│  ├─ lib.cairo         # shared Cairo library helpers
-│  ├─ constants/
-│  ├─ contracts/
-│  │  ├─ bridges/       # bridge contracts (Starknet-side)
-│  │  ├─ core/          # core protocol contracts
-│  │  ├─ mock/          # mocks for testing
-│  │  └─ tokens/        # token contracts / test tokens
-│  ├─ enums/
-│  ├─ errors/
-│  ├─ event_structs/
-│  ├─ interfaces/
-│  ├─ libraries/
-│  ├─ structs/
-│  └─ utils/
-├─ target/              # build artifacts (generated)
-└─ .tool-versions
-```
+- The React Native app communicates with `zeus_service` over REST + WebSocket. It does not (by default) call Starknet contracts directly — instead it:
+	- Requests nonces and performs wallet-login flows (starknet and Bitcoin wallets) via `/auth/*` endpoints.
+	- Submits swap/order actions to `zeus_service` (e.g., `POST /swap`, `POST /orderbook/submit`), which then orchestrates on-chain or relayer interactions.
+	- Subscribes to real-time topics via Socket.IO to receive compact deltas and notifications based on contract events.
+	- For some user-initiated on-chain actions (e.g., signing a secret reveal or admin flows) the app may prompt the user wallet to create and sign transactions; these signed payloads are either sent to the backend or a relayer for on-chain submission.
 
-## Recommended workflow
-1. Ensure `scarb` is installed and available on your PATH.
-2. Run `scarb build` to compile contracts and populate `target/` and `abis/`.
-3. Use `scripts/deploy.py` to declare and deploy contract classes to your chosen network (it will call `starkli`).
-4. Update backend `zeus_service` configuration with deployed contract addresses and ABIs if needed.
+Example end-to-end flows (high-level)
 
-## Notes for developers
-- `Scarb.toml` includes dependency pins for OpenZeppelin Cairo libs and `snforge_std` — consult the file when updating or adding dependencies.
-- The repo includes `snfoundry.toml` for optional Foundry-style config when using `starknet-foundry` tooling.
-- ABI JSONs are kept in `abis/` for consumption by `zeus_service` and client tooling.
+- BTC deposit → mint ZKBTC:
+	1. User broadcasts BTC deposit on Bitcoin network to address monitored by relayer.
+	2. Relayer submits deposit proof to `BitcoinBridge.deposit_btc` (on-chain) and calls `BTCVault.deposit_utxo` through `BitcoinBridge` flow.
+	3. `BitcoinBridge` validates proof and calls `ZKBTC.bridge_mint` to mint wrapped BTC for the user.
+	4. Backend indexes `BitcoinDepositCompleted` and pushes a `vault.delta` to the app.
 
-If you'd like, I can also add example `scarb` and `snforge` install commands for Linux/macOS and a small CI job snippet to compile contracts on push.
+- Atomic swap (STRK ↔ BTC) via `SwapEscrow` + `StarknetAtomicBridge`:
+	1. Initiator uses `zeus_app` to create swap (calls backend API). Backend records swap and (optionally) mints/approves tokens.
+	2. Initiator funds the `SwapEscrow` on-chain (or backend/relayer does it on their behalf after signed approval).
+	3. Counterparty reveals secret / submits ZK proof via `ZKAtomicSwapVerifier` (or backend relayer submits proof), `SwapEscrow.complete_swap` is called and tokens are transferred accordingly.
+	4. For BTC side, `BTCVault` & `BitcoinBridge` are used to mark UTXOs spent and release funds off-chain.
+
+Deployment & integration notes
+
+- Build with `scarb build` and run `python3 scripts/deploy.py` to declare & deploy contracts. The deploy script emits class hashes / addresses which must be added to `zeus_service` environment and ABIs copied to `zeus_service/src/abis` (or referenced by path).
+- `zeus_service` contains Starknet client adapters in `src/modules/starknet/` that wrap ABI dispatchers. Ensure the addresses used in `zeus_service` match deployed contract addresses (env or config files).
+- For local development: run a Starknet devnet (or Foundry-mocked network), run `bitcoind` regtest (if testing BTC flows) and use the backend's Docker Compose recipe (see repo root README) to wire Postgres & Redis.
+
+Testing & CI
+
+- Unit tests can target individual contract modules via Scarb/Foundry helpers. Mocks in `src/contracts/mock/` are used for deterministic behavior.
+- CI should run `scarb build` and optionally `scripts/deploy.py --network ci` against a devnet to validate ABI compatibility. Add a job to publish ABIs to the backend package if your CI pattern requires.
+
+Where to look next
+
+- Contract sources: `src/contracts/core/`, `src/contracts/bridges/`, `src/contracts/tokens/`.
+- Backend integration: update `zeus_service/src/abis/` with the latest ABIs and set deployed addresses in `zeus_service` environment.
+- Mobile integration: `zeus_app` expects the backend to expose compact deltas and swap/bridge endpoints — ensure backend indexing is running when testing UI flows.
+
+---

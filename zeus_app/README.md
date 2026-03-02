@@ -266,5 +266,3 @@ zeus_app/
 **Contributing**
 - Please open PRs against the `zeus_app` folder. Keep UI/UX changes separated from core networking/auth changes. Add tests for any logic-heavy helpers.
 
-**License & Contact**
-- See repository LICENSE (root) for terms. For questions, check the project README at the repository root.

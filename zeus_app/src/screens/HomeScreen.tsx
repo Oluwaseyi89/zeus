@@ -43,7 +43,6 @@ const HomeScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          {/* <Image source={logoSource} style={{ width: logoWidth, height: logoHeight }} resizeMode="contain" /> */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={styles.privacyBadge}>
               <ShieldIcon />
