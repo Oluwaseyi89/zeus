@@ -4,6 +4,8 @@
 ![Starknet](https://img.shields.io/badge/Starknet-Cairo-blue)
 ![React Native](https://img.shields.io/badge/React-Native-blueviolet)
 ![NestJS](https://img.shields.io/badge/NestJS-Backend-red)
+![Next.js](https://img.shields.io/badge/Next.js-Web-black)
+![Stellar](https://img.shields.io/badge/Stellar-Soroban-lightgrey)
 
 ZEUS is a privacy-first decentralized exchange protocol enabling completely private, trust-minimized atomic swaps between Bitcoin and Starknet assets. Unlike traditional DEXs with transparent orderbooks, ZEUS hides all trading intent, amounts, and counterparty information using zero-knowledge proofs while maintaining complete verifiability.
 
@@ -22,8 +24,10 @@ ZEUS is a privacy-first decentralized exchange protocol enabling completely priv
 2. [Repository Structure](#repository-structure)
 3. [Quick Start](#quick-start)
     * [Mobile App (zeus_app)](#mobile-app-zeus_app)
+    * [Web App (zeus_web)](#web-app-zeus_web)
     * [Backend Service (zeus_service)](#backend-service-zeus_service)
     * [Smart Contracts (zeus_contracts)](#smart-contracts-zeus_contracts)
+    * [Stellar Contracts (zeus_stellar)](#stellar-contracts-zeus_stellar)
 4. [Development Workflow](#development-workflow)
 5. [Testing](#testing)
 6. [Deployment](#deployment)
@@ -143,6 +147,19 @@ zeus/
 │   ├── Scarb.toml                 # Cairo package config
 │   └── snfoundry.toml             # Starknet Foundry config
 │
+├── zeus_web/                      # Next.js Web Frontend
+│   ├── app/                       # App Router routes
+│   ├── src/                       # Components, hooks, services
+│   ├── public/                    # Static assets
+│   └── package.json               # Dependencies
+│
+├── zeus_stellar/                  # Stellar Soroban Contracts
+│   ├── contracts/                 # Protocol contract crates
+│   ├── crates/                    # Shared Rust crates
+│   ├── scripts/                   # Deploy/invoke helpers
+│   ├── test/                      # Integration tests and fixtures
+│   └── Cargo.toml                 # Rust workspace config
+│
 ├── docker-compose.yml             # Local development environment
 ├── .gitignore
 └── README.md                      # This file
@@ -157,6 +174,7 @@ zeus/
 * **Docker** (optional, for local blockchain services)
 * **Expo CLI** (`npm install -g expo-cli`)
 * **Scarb** (Cairo package manager)
+* **Rust + Cargo** (for Soroban workspace)
 * **Redis** and **PostgreSQL** (or use Docker)
 
 ### One-Line Setup (macOS/Linux)
@@ -183,6 +201,15 @@ python3 scripts/deploy.py --network local
 cd ../zeus_app
 npm install
 expo start --lan
+
+# In a new terminal - setup web app
+cd ../zeus_web
+npm install
+npm run dev
+
+# In a new terminal - validate stellar workspace
+cd ../zeus_stellar
+cargo check
 ```
 
 ### Windows Setup
@@ -197,6 +224,11 @@ npm run start:dev
 cd ..\zeus_app
 npm install
 expo start --lan
+
+# New terminal
+cd ..\zeus_web
+npm install
+npm run dev
 ```
 
 ## 📱 Mobile App (zeus_app)
@@ -307,6 +339,42 @@ NestJS backend providing REST APIs and WebSocket real-time updates.
 * **swap.delta** - Swap status update
 * **order.delta** - Orderbook update
 * **vault.delta** - Vault balance update
+
+## 🌐 Web App (zeus_web)
+
+The Next.js web app mirrors core mobile journeys for desktop/browser users and provides a clean structure for portfolio, swap, inbox, privacy, and wallet flows.
+
+### Route Map
+* `/home`
+* `/inbox/[id]`
+* `/portfolio`
+* `/privacy_settings`
+* `/swap`
+* `/transaction_history`
+* `/wallet_settings`
+
+### Web Setup
+```bash
+cd zeus_web
+npm install
+npm run dev
+```
+
+## ⭐ Stellar Contracts (zeus_stellar)
+
+The Soroban workspace is the Stellar-native contract surface for ZEUS and is structured by protocol domain with shared Rust crates for common types, interfaces, and utilities.
+
+### Key Areas
+* `contracts/` - Protocol contract crates (bridge, vault, escrow, verifier, tokens)
+* `crates/` - Shared crates (`zeus_types`, `zeus_events`, `zeus_errors`, etc.)
+* `scripts/` - Deployment, invocation, and upgrade helpers
+* `artifacts/` - WASM, ABI, and binding outputs
+
+### Stellar Workspace Check
+```bash
+cd zeus_stellar
+cargo check
+```
 
 ## 🔒 Security
 
