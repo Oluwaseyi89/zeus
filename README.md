@@ -7,14 +7,15 @@
 ![Next.js](https://img.shields.io/badge/Next.js-Web-black)
 ![Stellar](https://img.shields.io/badge/Stellar-Soroban-lightgrey)
 
-ZEUS is a privacy-first decentralized exchange protocol enabling completely private, trust-minimized atomic swaps between Bitcoin and Starknet assets. Unlike traditional DEXs with transparent orderbooks, ZEUS hides all trading intent, amounts, and counterparty information using zero-knowledge proofs while maintaining complete verifiability.
+ZEUS is a privacy-first decentralized exchange protocol enabling completely private, trust-minimized atomic swaps across Bitcoin, Starknet, and Stellar assets. Unlike traditional DEXs with transparent orderbooks, ZEUS hides all trading intent, amounts, and counterparty information using zero-knowledge proofs while maintaining complete verifiability.
 
 ## 🌟 Key Features
 
 * **Quantum-Resistant Privacy** - Uses STARKs not SNARKs for post-quantum security
 * **Bitcoin Native** - Direct atomic swaps without wrapped BTC
 * **No MEV** - Hidden orderbook prevents front-running and manipulation
-* **Cross-Chain ZK** - Proofs span both Bitcoin and Starknet
+* **Multi-Chain Execution** - Protocol surfaces span Starknet (Cairo) and Stellar (Soroban)
+* **Cross-Chain ZK** - Proofs and commitments secure Bitcoin, Starknet, and Stellar swap flows
 * **Mobile-First** - Full-featured React Native mobile app
 * **Institutional Ready** - Audit trails via selective disclosure
 
@@ -70,15 +71,24 @@ ZEUS is a privacy-first decentralized exchange protocol enabling completely priv
 │                      ▼                                             │
 │  ┌─────────────────────────────────────────────────────────────┐   │
 │  │                  Blockchain Layer                            │   │
-│  │  ┌───────────────────┐          ┌───────────────────────┐   │   │
-│  │  │     Bitcoin       │◄────────►│      Starknet         │   │   │
-│  │  │    Network        │  Atomic  │    Contracts          │   │   │
-│  │  │                   │  Swaps   │  (zeus_contracts)     │   │   │
-│  │  │ • HTLC Scripts    │          │ • ZKAtomicSwapVerifier│   │   │
-│  │  │ • OP_CAT*         │          │ • BTCVault            │   │   │
-│  │  │                   │          │ • SwapEscrow          │   │   │
-│  │  └───────────────────┘          │ • ZKOrderBook         │   │   │
-│  │                                 └───────────────────────┘   │   │
+│  │  ┌───────────────────┐     ┌───────────────────────┐        │   │
+│  │  │     Bitcoin       │◄───►│      Starknet         │        │   │
+│  │  │    Network        │     │    Contracts          │        │   │
+│  │  │                   │     │  (zeus_contracts)     │        │   │
+│  │  │ • HTLC Scripts    │     │ • ZKAtomicSwapVerifier│        │   │
+│  │  │ • UTXO Flows      │     │ • BTCVault            │        │   │
+│  │  └───────────────────┘     │ • SwapEscrow          │        │   │
+│  │             ▲              │ • ZKOrderBook         │        │   │
+│  │             │              └──────────┬────────────┘        │   │
+│  │             │                         │                     │   │
+│  │             └─────────────────────────▼                     │   │
+│  │                      ┌───────────────────────────────┐      │   │
+│  │                      │        Stellar Soroban        │      │   │
+│  │                      │      Contracts (zeus_stellar) │      │   │
+│  │                      │ • stellar_atomic_bridge       │      │   │
+│  │                      │ • btc_vault / swap_escrow     │      │   │
+│  │                      │ • zk_order_book / zkbtc       │      │   │
+│  │                      └───────────────────────────────┘      │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -86,10 +96,11 @@ ZEUS is a privacy-first decentralized exchange protocol enabling completely priv
 ### Core Components
 
 * **Mobile App (React Native/Expo)** - Frontend interface for wallet management, atomic swaps, and private orderbook interaction
+* **Web App (Next.js)** - Browser interface for swap lifecycle, portfolio, inbox, privacy, and wallet settings
 * **Backend Service (NestJS)** - API gateway, real-time WebSocket server, business logic, and blockchain indexers
-* **Smart Contracts (Cairo)** - Starknet contracts for ZK verification, BTC vault, and swap escrow
-* **Bitcoin Integration** - HTLC scripts and relayer service for Bitcoin atomic swaps
-* **ZK Proof System** - Circuit definitions and proof generation for privacy-preserving operations
+* **Smart Contracts (Cairo + Soroban)** - Starknet and Stellar contracts for ZK verification, vault custody, orderbook, and swap escrow
+* **Bitcoin Integration** - HTLC scripts and relayer service for Bitcoin atomic swaps into both Starknet and Stellar surfaces
+* **ZK Proof System** - Circuit definitions and proof generation for privacy-preserving multi-chain operations
 
 ## 📁 Repository Structure
 ```
@@ -280,7 +291,7 @@ expo start --lan
 
 ## 🔧 Backend Service (zeus_service)
 
-NestJS backend providing REST APIs and WebSocket real-time updates.
+NestJS backend providing REST APIs and WebSocket real-time updates across Bitcoin, Starknet, and Stellar workflows.
 
 ### Architecture
 ```
@@ -302,7 +313,7 @@ NestJS backend providing REST APIs and WebSocket real-time updates.
 │  │           Queue Service (Redis)                  │   │
 │  │  • Notification retries                          │   │
 │  │  • Swap execution                                │   │
-│  │  • Blockchain sync                               │   │
+│  │  • Starknet + Stellar chain sync                 │   │
 │  └─────────────────────────────────────────────────┘   │
 │                         │                               │
 │                         ▼                               │
@@ -379,13 +390,13 @@ cargo check
 ## 🔒 Security
 
 ### Smart Contract Security
-* **Reentrancy Guards** - All external calls at function end
-* **Access Control** - Role-based permissions
-* **Input Validation** - Comprehensive parameter checking
-* **Circuit Breakers** - Emergency pause functionality
+* **Reentrancy Guards** - All external calls at function end (Cairo/Soroban applicable flows)
+* **Access Control** - Role-based permissions across Starknet and Stellar contract surfaces
+* **Input Validation** - Comprehensive parameter checking for cross-chain payloads
+* **Circuit Breakers** - Emergency pause functionality for swap and bridge modules
 * **Timelocks** - Administrative actions delayed
 * **Multi-sig** - Bitcoin custody requires multiple signatures
-* **Nullifier Sets** - Prevent double-spending
+* **Nullifier Sets** - Prevent double-spending and replay across supported chains
 
 ### Infrastructure Security
 * **JWT Authentication** - Short-lived tokens with refresh
@@ -412,6 +423,7 @@ cargo check
 ## 🙏 Acknowledgments
 
 * **Starknet Foundation**
+* **Stellar Development Foundation**
 * **Bitcoin community**
 * **OpenZeppelin** for Cairo contracts
 * **WalletConnect team**
@@ -425,4 +437,4 @@ cargo check
 * **GitHub Issues:** Report bugs
 
 ---
-Built with ❤️ for the **Starknet** and **Bitcoin** communities
+Built with ❤️ for the **Stellar**, **Starknet** and **Bitcoin** communities
