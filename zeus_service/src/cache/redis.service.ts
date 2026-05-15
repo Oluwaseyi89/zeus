@@ -39,7 +39,8 @@ export class RedisService implements OnModuleDestroy {
 
   async set(key: string, value: string, ttlSeconds?: number) {
     try {
-      if (ttlSeconds) return await this.client.set(key, value, 'EX', ttlSeconds);
+      if (ttlSeconds)
+        return await this.client.set(key, value, 'EX', ttlSeconds);
       return await this.client.set(key, value);
     } catch (err) {
       this.logger.warn(`Redis set error key=${key}: ${String(err)}`);

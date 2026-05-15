@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { BitcoinVaultService } from './bitcoin-vault.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 
@@ -12,7 +20,10 @@ export class BitcoinController {
   }
 
   @Get('vault/:address/utxo/:utxo')
-  async getUTXO(@Param('address') address: string, @Param('utxo') utxo: string) {
+  async getUTXO(
+    @Param('address') address: string,
+    @Param('utxo') utxo: string,
+  ) {
     return this.vault.getUTXO(address, utxo);
   }
 
@@ -24,6 +35,11 @@ export class BitcoinController {
     @Body() body: { amount: string; bitcoin_address: string },
   ) {
     const userId = req?.user?.id;
-    return this.vault.requestWithdrawal(address, body.amount, body.bitcoin_address, userId);
+    return this.vault.requestWithdrawal(
+      address,
+      body.amount,
+      body.bitcoin_address,
+      userId,
+    );
   }
 }

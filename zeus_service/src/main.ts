@@ -10,11 +10,16 @@ async function bootstrap() {
     try {
       const watchtower = app.get(BitcoinWatchtowerService);
       // start in background (non-blocking)
-      watchtower.startPolling(5000).catch((e) => console.warn('watchtower error', e));
+      watchtower
+        .startPolling(5000)
+        .catch((e) => console.warn('watchtower error', e));
     } catch (err) {
       // service may not be available in some contexts; ignore
-      // eslint-disable-next-line no-console
-      console.warn('BitcoinWatchtowerService not available:', err?.message ?? err);
+
+      console.warn(
+        'BitcoinWatchtowerService not available:',
+        err?.message ?? err,
+      );
     }
   }
 

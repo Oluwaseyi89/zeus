@@ -12,6 +12,8 @@ export class WalletController {
 
   @Post('sign')
   async sign(@Body() body: { address: string; message: string }) {
-    return { signature: await this.wallet.signMessage(body.address, body.message) };
+    return {
+      signature: await this.wallet.signMessage(body.address, body.message),
+    };
   }
 }

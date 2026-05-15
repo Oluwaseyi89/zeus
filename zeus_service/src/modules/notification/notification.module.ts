@@ -10,8 +10,16 @@ import { QueueModule } from '../../queue/queue.module';
 import { NotificationQueueProcessor } from '../../queue/notification-queue.processor';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, NotificationMetric]), AuthModule, QueueModule],
-  providers: [NotificationService, NotificationGateway, NotificationQueueProcessor],
+  imports: [
+    TypeOrmModule.forFeature([Notification, NotificationMetric]),
+    AuthModule,
+    QueueModule,
+  ],
+  providers: [
+    NotificationService,
+    NotificationGateway,
+    NotificationQueueProcessor,
+  ],
   controllers: [NotificationController],
   exports: [NotificationService, NotificationGateway],
 })

@@ -23,7 +23,9 @@ describe('Swap e2e (dev)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -42,7 +44,10 @@ describe('Swap e2e (dev)', () => {
       timelock: 3600,
     };
 
-    const res = await request(app.getHttpServer()).post('/swap').send(payload).expect(201);
+    const res = await request(app.getHttpServer())
+      .post('/swap')
+      .send(payload)
+      .expect(201);
     expect(res.body).toHaveProperty('swapId');
     expect(res.body).toHaveProperty('status');
   });

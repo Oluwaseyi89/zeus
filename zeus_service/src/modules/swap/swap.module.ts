@@ -8,7 +8,12 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SwapOrder]), StarknetModule, AuthModule, NotificationModule],
+  imports: [
+    TypeOrmModule.forFeature([SwapOrder]),
+    StarknetModule,
+    AuthModule,
+    NotificationModule,
+  ],
   providers: [SwapService],
   controllers: [SwapController],
   exports: [SwapService],

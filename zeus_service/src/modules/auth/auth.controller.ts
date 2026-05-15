@@ -32,9 +32,15 @@ export class AuthController {
     const sig = body.signature;
     if (!sig) return { error: 'signature required' };
     const nonce = this.auth.getNonceForAddress(addr) ?? null;
-    if (!nonce) return { error: 'nonce not found or expired; request /auth/nonce first' };
+    if (!nonce)
+      return { error: 'nonce not found or expired; request /auth/nonce first' };
 
-    const ok = this.auth.verifyWalletSignature(addr, nonce, sig, body.publicKey);
+    const ok = this.auth.verifyWalletSignature(
+      addr,
+      nonce,
+      sig,
+      body.publicKey,
+    );
     if (!ok) return { error: 'signature verification failed' };
 
     // consume nonce and issue JWT

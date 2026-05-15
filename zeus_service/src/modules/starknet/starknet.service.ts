@@ -3,12 +3,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 
-const DEFAULT_STARKNET_RPC = process.env.STARKNET_RPC_URL ?? 'https://alpha4.starknet.io';
+const DEFAULT_STARKNET_RPC =
+  process.env.STARKNET_RPC_URL ?? 'https://alpha4.starknet.io';
 
 let starknetLib: any = null;
 try {
   // dynamic require so developers without the package can still run non-account code
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   starknetLib = require('starknet');
 } catch (e) {
   starknetLib = null;
@@ -36,14 +37,21 @@ export class AbiContract {
   }
 
   getFunctions(): ContractFunction[] {
-    const items = this.abi.filter((i) => i.type === 'interface' || i.type === 'impl');
+    const items = this.abi.filter(
+      (i) => i.type === 'interface' || i.type === 'impl',
+    );
     // ABI may contain multiple interface blocks; flatten functions
     const funcs: ContractFunction[] = [];
     this.abi.forEach((item) => {
       if (item.type === 'interface' && Array.isArray(item.items)) {
         item.items.forEach((it: any) => {
           if (it.type === 'function') {
-            funcs.push({ name: it.name, inputs: it.inputs ?? [], outputs: it.outputs ?? [], state_mutability: it.state_mutability });
+            funcs.push({
+              name: it.name,
+              inputs: it.inputs ?? [],
+              outputs: it.outputs ?? [],
+              state_mutability: it.state_mutability,
+            });
           }
         });
       }
@@ -67,13 +75,20 @@ export class StarknetService {
     const rpc = process.env.STARKNET_RPC_URL ?? DEFAULT_STARKNET_RPC;
     if (starknetLib) {
       try {
-        const Provider = starknetLib.Provider ?? starknetLib.default?.Provider ?? starknetLib.JsonRpcProvider;
+        const Provider =
+          starknetLib.Provider ??
+          starknetLib.default?.Provider ??
+          starknetLib.JsonRpcProvider;
         if (Provider) {
           this.provider = new Provider({ baseUrl: rpc });
-          this.logger.log('Initialized starknet provider from starknet library.');
+          this.logger.log(
+            'Initialized starknet provider from starknet library.',
+          );
         }
       } catch (err) {
-        this.logger.warn('Failed to initialize starknet provider: ' + String(err));
+        this.logger.warn(
+          'Failed to initialize starknet provider: ' + String(err),
+        );
       }
     }
   }
@@ -91,19 +106,33 @@ export class StarknetService {
   }
 
   // Minimal Starknet RPC helpers for devnet testing.
-  async callContract(address: string, entrypoint: string, calldata: any[] = []) {
+  async callContract(
+    address: string,
+    entrypoint: string,
+    calldata: any[] = [],
+  ) {
     const rpc = process.env.STARKNET_RPC_URL ?? DEFAULT_STARKNET_RPC;
     try {
       if (this.provider && typeof this.provider.callContract === 'function') {
         // prefer provider.callContract when available
-        const res = await this.provider.callContract({ contractAddress: address, entrypoint, calldata });
+        const res = await this.provider.callContract({
+          contractAddress: address,
+          entrypoint,
+          calldata,
+        });
         return res;
       }
       const payload = {
         jsonrpc: '2.0',
         method: 'starknet_call',
         id: 1,
-        params: [{ contract_address: address, entry_point_selector: entrypoint, calldata }],
+        params: [
+          {
+            contract_address: address,
+            entry_point_selector: entrypoint,
+            calldata,
+          },
+        ],
       };
       const res = await axios.post(rpc, payload, { timeout: 10000 });
       return res.data;
@@ -111,12 +140,19 @@ export class StarknetService {
       this.logger.warn(`starknet call failed: ${String(err)}`);
       // fallback: return a simulated response for dev
       return { result: null, error: 'rpc-unavailable' };
-      }
-      }
+    }
+  }
 
-  async invokeContract(signerAddress: string, contractAddress: string, entrypoint: string, calldata: any[] = []) {
+  async invokeContract(
+    signerAddress: string,
+    contractAddress: string,
+    entrypoint: string,
+    calldata: any[] = [],
+  ) {
     // For dev, we don't perform real invokes; return a placeholder object
-    this.logger.debug(`invokeContract (dev): ${entrypoint} on ${contractAddress}`);
+    this.logger.debug(
+      `invokeContract (dev): ${entrypoint} on ${contractAddress}`,
+    );
     return { status: 'submitted', tx_hash: null };
   }
 
@@ -127,17 +163,31 @@ export class StarknetService {
   /**
    * Estimate fee for an invoke; prefers provider. Returns RPC response or fallback object.
    */
-  async estimateFee(contractAddress: string, entrypoint: string, calldata: any[] = []) {
+  async estimateFee(
+    contractAddress: string,
+    entrypoint: string,
+    calldata: any[] = [],
+  ) {
     const rpc = process.env.STARKNET_RPC_URL ?? DEFAULT_STARKNET_RPC;
     try {
       if (this.provider && typeof this.provider.estimateFee === 'function') {
-        return await this.provider.estimateFee({ contractAddress, entrypoint, calldata });
+        return await this.provider.estimateFee({
+          contractAddress,
+          entrypoint,
+          calldata,
+        });
       }
       const payload = {
         jsonrpc: '2.0',
         method: 'starknet_estimateFee',
         id: 1,
-        params: [{ contract_address: contractAddress, entry_point_selector: entrypoint, calldata }],
+        params: [
+          {
+            contract_address: contractAddress,
+            entry_point_selector: entrypoint,
+            calldata,
+          },
+        ],
       };
       const res = await axios.post(rpc, payload, { timeout: 10000 });
       return res.data;
@@ -146,5 +196,4 @@ export class StarknetService {
       return { error: 'estimate-failed' };
     }
   }
-
 }

@@ -14,12 +14,15 @@ export class NotificationQueueProcessor implements OnModuleInit {
   constructor(
     private readonly queue: QueueService,
     private readonly gateway: NotificationGateway,
-    @InjectRepository(NotificationMetric) private readonly metricRepo: Repository<NotificationMetric>,
-    @InjectRepository(Notification) private readonly notifRepo: Repository<Notification>,
+    @InjectRepository(NotificationMetric)
+    private readonly metricRepo: Repository<NotificationMetric>,
+    @InjectRepository(Notification)
+    private readonly notifRepo: Repository<Notification>,
   ) {}
 
   onModuleInit() {
-    const enabled = (process.env.ENABLE_NOTIFICATION_QUEUE ?? 'true') === 'true';
+    const enabled =
+      (process.env.ENABLE_NOTIFICATION_QUEUE ?? 'true') === 'true';
     if (enabled) this.start();
   }
 
@@ -41,7 +44,9 @@ export class NotificationQueueProcessor implements OnModuleInit {
         }
 
         // job expected: { metricId, notificationId }
-        const metric = job.metricId ? await this.metricRepo.findOneBy({ id: job.metricId } as any) : null;
+        const metric = job.metricId
+          ? await this.metricRepo.findOneBy({ id: job.metricId } as any)
+          : null;
         const notifId = job.notificationId ?? metric?.notificationId;
         if (!notifId) {
           this.logger.warn('job missing notification id');
@@ -57,9 +62,11 @@ export class NotificationQueueProcessor implements OnModuleInit {
         // attempt delivery via gateway directly
         let ok = false;
         try {
-          const room = (notif.data as any)?.meta?.room;
+          const room = notif.data?.meta?.room;
           if (room) ok = !!this.gateway.sendToRoom(room, 'notification', notif);
-          ok = ok || !!this.gateway.sendToUser(notif.userId, 'notification', notif);
+          ok =
+            ok ||
+            !!this.gateway.sendToUser(notif.userId, 'notification', notif);
         } catch (e) {
           this.logger.debug('delivery attempt failed: ' + String(e));
         }
@@ -73,17 +80,29 @@ export class NotificationQueueProcessor implements OnModuleInit {
             await this.metricRepo.save(metric as any);
           } else {
             // create a lightweight metric record
-            await this.metricRepo.save(this.metricRepo.create({ notificationId: notifId, attempts: 1, delivered: !!ok, lastResult: ok } as any) as any);
+            await this.metricRepo.save(
+              this.metricRepo.create({
+                notificationId: notifId,
+                attempts: 1,
+                delivered: !!ok,
+                lastResult: ok,
+              } as any) as any,
+            );
           }
         } catch (e) {
           this.logger.debug('metric update failed: ' + String(e));
         }
 
         // optionally enqueue again if not delivered and attempts < max
-        const maxAttempts = Number(process.env.NOTIFICATION_MAX_RETRY_ATTEMPTS ?? 5);
+        const maxAttempts = Number(
+          process.env.NOTIFICATION_MAX_RETRY_ATTEMPTS ?? 5,
+        );
         const attempts = metric?.attempts ?? 1;
         if (!ok && attempts < maxAttempts) {
-          await this.queue.enqueue(queueName, { metricId: metric?.id, notificationId: notifId });
+          await this.queue.enqueue(queueName, {
+            metricId: metric?.id,
+            notificationId: notifId,
+          });
         }
       } catch (e) {
         this.logger.warn('notification queue loop error: ' + String(e));

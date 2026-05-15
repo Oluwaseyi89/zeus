@@ -6,7 +6,6 @@ import { StarknetService } from './starknet.service';
 // dependency isn't installed yet in the developer environment.
 let starknetLib: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   starknetLib = require('starknet');
 } catch (e) {
   starknetLib = null;
@@ -20,32 +19,54 @@ export class StarknetAccountService {
   private provider: any;
   private account: any;
 
-  constructor(private readonly config: ConfigService, private readonly starknet: StarknetService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly starknet: StarknetService,
+  ) {
     this.privateKey = this.config.get<string>('STARKNET_ACCOUNT_PRIVATE_KEY');
     this.accountAddress = this.config.get<string>('STARKNET_ACCOUNT_ADDRESS');
 
     if (this.privateKey && this.accountAddress && starknetLib) {
       try {
-        const rpcUrl = this.config.get<string>('STARKNET_RPC_URL') ?? process.env.STARKNET_RPC_URL;
-        const Provider = starknetLib.Provider ?? starknetLib.default?.Provider ?? starknetLib.JsonRpcProvider;
+        const rpcUrl =
+          this.config.get<string>('STARKNET_RPC_URL') ??
+          process.env.STARKNET_RPC_URL;
+        const Provider =
+          starknetLib.Provider ??
+          starknetLib.default?.Provider ??
+          starknetLib.JsonRpcProvider;
         const Account = starknetLib.Account ?? starknetLib.default?.Account;
         const ec = starknetLib.ec ?? starknetLib.default?.ec;
 
         if (!Provider || !Account || !ec) {
-          this.logger.warn('starknet library detected but expected exports missing; falling back to dev mode.');
+          this.logger.warn(
+            'starknet library detected but expected exports missing; falling back to dev mode.',
+          );
         } else {
           this.provider = new Provider({ baseUrl: rpcUrl });
           const keyPair = ec.getKeyPair(this.privateKey);
-          this.account = new Account(this.provider, this.accountAddress, keyPair);
-          this.logger.log(`Starknet account initialized: ${this.accountAddress}`);
+          this.account = new Account(
+            this.provider,
+            this.accountAddress,
+            keyPair,
+          );
+          this.logger.log(
+            `Starknet account initialized: ${this.accountAddress}`,
+          );
         }
       } catch (err) {
-        this.logger.warn('Failed to initialize Starknet account: ' + String(err));
+        this.logger.warn(
+          'Failed to initialize Starknet account: ' + String(err),
+        );
       }
     } else if (!this.privateKey || !this.accountAddress) {
-      this.logger.debug('STARKNET account not configured; invoke operations will run in dev/simulated mode.');
+      this.logger.debug(
+        'STARKNET account not configured; invoke operations will run in dev/simulated mode.',
+      );
     } else {
-      this.logger.debug('starknet library not installed; account operations will be simulated.');
+      this.logger.debug(
+        'starknet library not installed; account operations will be simulated.',
+      );
     }
   }
 
@@ -53,8 +74,14 @@ export class StarknetAccountService {
    * Invoke a contract entrypoint using a configured Account if available.
    * Falls back to the StarknetService stub when not configured.
    */
-  async invoke(contractAddress: string, entrypoint: string, calldata: any[] = []) {
-    return this.invokeWithOptions(contractAddress, entrypoint, calldata, { waitForReceipt: true });
+  async invoke(
+    contractAddress: string,
+    entrypoint: string,
+    calldata: any[] = [],
+  ) {
+    return this.invokeWithOptions(contractAddress, entrypoint, calldata, {
+      waitForReceipt: true,
+    });
   }
 
   /**
@@ -66,7 +93,11 @@ export class StarknetAccountService {
     calldata: any[] = [],
     opts: { maxFee?: any; waitForReceipt?: boolean; timeoutMs?: number } = {},
   ) {
-    const { maxFee: suppliedMaxFee, waitForReceipt = true, timeoutMs = 60000 } = opts;
+    const {
+      maxFee: suppliedMaxFee,
+      waitForReceipt = true,
+      timeoutMs = 60000,
+    } = opts;
 
     if (this.account) {
       try {
@@ -76,18 +107,34 @@ export class StarknetAccountService {
         let maxFee: any = suppliedMaxFee ?? 'auto';
         if (maxFee === 'auto' || maxFee == null) {
           try {
-            const feeRes = await this.starknet.estimateFee(contractAddress, entrypoint, calldata);
+            const feeRes = await this.starknet.estimateFee(
+              contractAddress,
+              entrypoint,
+              calldata,
+            );
             const possible = feeRes || {};
-            maxFee = possible?.overall_fee ?? possible?.fee ?? possible?.suggestedMaxFee ?? possible?.suggested_max_fee ?? maxFee;
+            maxFee =
+              possible?.overall_fee ??
+              possible?.fee ??
+              possible?.suggestedMaxFee ??
+              possible?.suggested_max_fee ??
+              maxFee;
             if (typeof maxFee === 'number') maxFee = String(maxFee);
           } catch (e) {
-            this.logger.debug('estimateFee failed, proceeding with auto/fallback: ' + String(e));
+            this.logger.debug(
+              'estimateFee failed, proceeding with auto/fallback: ' + String(e),
+            );
             maxFee = suppliedMaxFee ?? 'auto';
           }
         }
 
         const resp = await this.account.execute(calls, undefined, { maxFee });
-        const txHash = resp?.transaction_hash ?? resp?.hash ?? resp?.tx_hash ?? resp?.txHash ?? null;
+        const txHash =
+          resp?.transaction_hash ??
+          resp?.hash ??
+          resp?.tx_hash ??
+          resp?.txHash ??
+          null;
 
         if (waitForReceipt && txHash) {
           try {
@@ -99,14 +146,26 @@ export class StarknetAccountService {
 
         return { status: 'submitted', tx_hash: txHash, raw: resp };
       } catch (err) {
-        this.logger.warn('Account invoke failed; falling back to RPC stub: ' + String(err));
-        return this.starknet.invokeContract(this.accountAddress ?? 'dev', contractAddress, entrypoint, calldata);
+        this.logger.warn(
+          'Account invoke failed; falling back to RPC stub: ' + String(err),
+        );
+        return this.starknet.invokeContract(
+          this.accountAddress ?? 'dev',
+          contractAddress,
+          entrypoint,
+          calldata,
+        );
       }
     }
 
     // No account configured or starknet lib unavailable — use dev stub.
     this.logger.debug('Performing dev-mode invoke via StarknetService stub.');
-    return this.starknet.invokeContract(this.accountAddress ?? 'dev', contractAddress, entrypoint, calldata);
+    return this.starknet.invokeContract(
+      this.accountAddress ?? 'dev',
+      contractAddress,
+      entrypoint,
+      calldata,
+    );
   }
 
   /**
@@ -137,7 +196,8 @@ export class StarknetAccountService {
       try {
         if (typeof provider.getTransactionReceipt === 'function') {
           const receipt = await provider.getTransactionReceipt(txHash);
-          if (receipt && (receipt.status && receipt.status !== 'PENDING')) return receipt;
+          if (receipt && receipt.status && receipt.status !== 'PENDING')
+            return receipt;
         }
 
         if (typeof provider.getTransactionStatus === 'function') {
