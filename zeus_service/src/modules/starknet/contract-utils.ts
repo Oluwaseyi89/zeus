@@ -3,7 +3,6 @@ import * as path from 'path';
 
 let starknetLib: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   starknetLib = require('starknet');
 } catch (e) {
   starknetLib = null;
@@ -18,7 +17,9 @@ export function loadAbi(name: string): any {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
-export function toUint256Parts(amount: string | number | bigint): [string, string] {
+export function toUint256Parts(
+  amount: string | number | bigint,
+): [string, string] {
   const v = BigInt(amount.toString());
   const MASK = (BigInt(1) << BigInt(128)) - BigInt(1);
   const low = (v & MASK).toString();
@@ -31,18 +32,31 @@ export function textToFeltArray(s: string, maxLen = 255): string[] {
   return Array.from(buf).map((b) => '0x' + b.toString(16).padStart(2, '0'));
 }
 
-export function instantiateWalletAccount(nodeUrl: string, address: string, privateKey: string) {
+export function instantiateWalletAccount(
+  nodeUrl: string,
+  address: string,
+  privateKey: string,
+) {
   if (!starknetLib) throw new Error('starknet library not installed');
-  const Provider = starknetLib.Provider ?? starknetLib.JsonRpcProvider ?? starknetLib.default?.Provider ?? starknetLib.RpcProvider;
+  const Provider =
+    starknetLib.Provider ??
+    starknetLib.JsonRpcProvider ??
+    starknetLib.default?.Provider ??
+    starknetLib.RpcProvider;
   const Account = starknetLib.Account ?? starknetLib.default?.Account;
-  if (!Provider || !Account) throw new Error('starknet exports missing Provider/Account');
+  if (!Provider || !Account)
+    throw new Error('starknet exports missing Provider/Account');
   const provider = new Provider({ baseUrl: nodeUrl });
   const account = new Account(provider, address, privateKey);
   return { provider, account };
 }
 
 // Alias that mirrors many examples using RpcProvider naming
-export function instantiateWalletAccountRpc(nodeUrl: string, address: string, privateKey: string) {
+export function instantiateWalletAccountRpc(
+  nodeUrl: string,
+  address: string,
+  privateKey: string,
+) {
   return instantiateWalletAccount(nodeUrl, address, privateKey);
 }
 
@@ -54,12 +68,19 @@ export function instantiateWalletAccountRpc(nodeUrl: string, address: string, pr
  * - If no executor provided, the function will attempt to instantiate an account
  *   from `STARKNET_ACCOUNT_PRIVATE_KEY`/`STARKNET_ACCOUNT_ADDRESS` and use that.
  */
-export function createContractApi(abiFilename: string, contractAddress: string, starknetService?: any) {
+export function createContractApi(
+  abiFilename: string,
+  contractAddress: string,
+  starknetService?: any,
+) {
   const abi = loadAbi(abiFilename);
   // find function descriptors
   const funcs: any[] = [];
   abi.forEach((it: any) => {
-    if ((it.type === 'interface' || it.type === 'impl') && Array.isArray(it.items)) {
+    if (
+      (it.type === 'interface' || it.type === 'impl') &&
+      Array.isArray(it.items)
+    ) {
       it.items.forEach((f: any) => {
         if (f.type === 'function') funcs.push(f);
       });
@@ -69,9 +90,16 @@ export function createContractApi(abiFilename: string, contractAddress: string, 
   const api: any = {};
 
   const defaultExecFactory = () => {
-    if (process.env.STARKNET_ACCOUNT_PRIVATE_KEY && process.env.STARKNET_ACCOUNT_ADDRESS) {
+    if (
+      process.env.STARKNET_ACCOUNT_PRIVATE_KEY &&
+      process.env.STARKNET_ACCOUNT_ADDRESS
+    ) {
       try {
-        return instantiateWalletAccount(process.env.STARKNET_RPC_URL ?? '', process.env.STARKNET_ACCOUNT_ADDRESS!, process.env.STARKNET_ACCOUNT_PRIVATE_KEY!);
+        return instantiateWalletAccount(
+          process.env.STARKNET_RPC_URL ?? '',
+          process.env.STARKNET_ACCOUNT_ADDRESS,
+          process.env.STARKNET_ACCOUNT_PRIVATE_KEY,
+        );
       } catch (err) {
         // ignore
       }
@@ -89,20 +117,35 @@ export function createContractApi(abiFilename: string, contractAddress: string, 
       // detect executor
       let exec: any = null;
       let params: any[] = [];
-      if (execOrParams && (execOrParams.account || typeof execOrParams.execute === 'function' || typeof execOrParams.callContract === 'function' || typeof execOrParams.call === 'function')) {
+      if (
+        execOrParams &&
+        (execOrParams.account ||
+          typeof execOrParams.execute === 'function' ||
+          typeof execOrParams.callContract === 'function' ||
+          typeof execOrParams.call === 'function')
+      ) {
         exec = execOrParams;
         params = restParams;
       } else {
         // exec not provided; treat execOrParams as params
-        params = [execOrParams, ...restParams].filter((p) => typeof p !== 'undefined');
+        params = [execOrParams, ...restParams].filter(
+          (p) => typeof p !== 'undefined',
+        );
         exec = defaultExecFactory();
       }
 
       // If params is a single object and CallData exists, try to compile
       let calldata: any[] = [];
-      if (params.length === 1 && params[0] && typeof params[0] === 'object' && starknetLib && (starknetLib.CallData || starknetLib.default?.CallData)) {
+      if (
+        params.length === 1 &&
+        params[0] &&
+        typeof params[0] === 'object' &&
+        starknetLib &&
+        (starknetLib.CallData || starknetLib.default?.CallData)
+      ) {
         try {
-          const CallData = starknetLib.CallData ?? starknetLib.default?.CallData;
+          const CallData =
+            starknetLib.CallData ?? starknetLib.default?.CallData;
           const cd = new CallData(abi);
           calldata = cd.compile(name, params[0]);
         } catch (err) {
@@ -111,15 +154,25 @@ export function createContractApi(abiFilename: string, contractAddress: string, 
         }
       } else {
         // flatten params to string values
-        calldata = params.map((p) => (typeof p === 'bigint' ? p.toString() : p));
+        calldata = params.map((p) =>
+          typeof p === 'bigint' ? p.toString() : p,
+        );
       }
 
       if (isView) {
-        return callViewFunction(exec ?? starknetService, contractAddress, name, calldata);
+        return callViewFunction(
+          exec ?? starknetService,
+          contractAddress,
+          name,
+          calldata,
+        );
       }
 
       // state-changing: execute
-      if (!exec) throw new Error('No executor available for write call; provide account or set STARKNET_ACCOUNT_PRIVATE_KEY/STARKNET_ACCOUNT_ADDRESS');
+      if (!exec)
+        throw new Error(
+          'No executor available for write call; provide account or set STARKNET_ACCOUNT_PRIVATE_KEY/STARKNET_ACCOUNT_ADDRESS',
+        );
       return executeFunction(exec, contractAddress, name, calldata);
     };
   });
@@ -157,7 +210,7 @@ export async function executeInitiateSwap(
   accountOrProvider: any,
   escrowAddress: string,
   calldata: string[],
-  options: { nodeUrl?: string } = {}
+  options: { nodeUrl?: string } = {},
 ) {
   // accountOrProvider may be { account, provider } or an Account instance
   let account: any = null;
@@ -165,12 +218,16 @@ export async function executeInitiateSwap(
   if (accountOrProvider && accountOrProvider.account) {
     account = accountOrProvider.account;
     provider = accountOrProvider.provider;
-  } else if (accountOrProvider && typeof accountOrProvider.execute === 'function') {
+  } else if (
+    accountOrProvider &&
+    typeof accountOrProvider.execute === 'function'
+  ) {
     account = accountOrProvider;
     provider = accountOrProvider.provider ?? null;
   }
 
-  if (!account) throw new Error('Account instance required to execute transaction');
+  if (!account)
+    throw new Error('Account instance required to execute transaction');
 
   const call = {
     contractAddress: escrowAddress,
@@ -216,23 +273,38 @@ export function parseAtomicSwapResponse(resp: any) {
 }
 
 // --- BTCVault helpers ---
-export function prepareRequestWithdrawalCalldata(opts: { amount: string | number | bigint; bitcoin_address: string }) {
+export function prepareRequestWithdrawalCalldata(opts: {
+  amount: string | number | bigint;
+  bitcoin_address: string;
+}) {
   const a = toUint256Parts(opts.amount);
   return [a[0], a[1], opts.bitcoin_address];
 }
 
-export async function executeRequestWithdrawal(accountOrProvider: any, vaultAddress: string, calldata: string[]) {
+export async function executeRequestWithdrawal(
+  accountOrProvider: any,
+  vaultAddress: string,
+  calldata: string[],
+) {
   let account: any = null;
   let provider: any = null;
   if (accountOrProvider && accountOrProvider.account) {
     account = accountOrProvider.account;
     provider = accountOrProvider.provider;
-  } else if (accountOrProvider && typeof accountOrProvider.execute === 'function') {
+  } else if (
+    accountOrProvider &&
+    typeof accountOrProvider.execute === 'function'
+  ) {
     account = accountOrProvider;
     provider = accountOrProvider.provider ?? null;
   }
-  if (!account) throw new Error('Account instance required to execute transaction');
-  const call = { contractAddress: vaultAddress, entrypoint: 'request_withdrawal', calldata };
+  if (!account)
+    throw new Error('Account instance required to execute transaction');
+  const call = {
+    contractAddress: vaultAddress,
+    entrypoint: 'request_withdrawal',
+    calldata,
+  };
   const result = await account.execute(call);
   const txHash = result?.transaction_hash ?? result?.hash ?? null;
   if (provider && txHash && typeof provider.waitForTransaction === 'function') {
@@ -278,17 +350,26 @@ export function parseVaultStats(resp: any) {
 }
 
 // Generic executor that uses an account to run an entrypoint and waits for tx
-export async function executeFunction(accountOrProvider: any, contractAddress: string, entrypoint: string, calldata: any[] = []) {
+export async function executeFunction(
+  accountOrProvider: any,
+  contractAddress: string,
+  entrypoint: string,
+  calldata: any[] = [],
+) {
   let account: any = null;
   let provider: any = null;
   if (accountOrProvider && accountOrProvider.account) {
     account = accountOrProvider.account;
     provider = accountOrProvider.provider;
-  } else if (accountOrProvider && typeof accountOrProvider.execute === 'function') {
+  } else if (
+    accountOrProvider &&
+    typeof accountOrProvider.execute === 'function'
+  ) {
     account = accountOrProvider;
     provider = accountOrProvider.provider ?? null;
   }
-  if (!account) throw new Error('Account instance required to execute transaction');
+  if (!account)
+    throw new Error('Account instance required to execute transaction');
   const call = { contractAddress, entrypoint, calldata };
   const result = await account.execute(call);
   const txHash = result?.transaction_hash ?? result?.hash ?? null;
@@ -299,7 +380,12 @@ export async function executeFunction(accountOrProvider: any, contractAddress: s
 }
 
 // Generic view caller: accepts a StarknetService-like object (has callContract) or a provider with callContract
-export async function callViewFunction(exec: any, contractAddress: string, entrypoint: string, calldata: any[] = []) {
+export async function callViewFunction(
+  exec: any,
+  contractAddress: string,
+  entrypoint: string,
+  calldata: any[] = [],
+) {
   try {
     if (exec && typeof exec.callContract === 'function') {
       return await exec.callContract(contractAddress, entrypoint, calldata);
@@ -316,16 +402,22 @@ export async function callViewFunction(exec: any, contractAddress: string, entry
 }
 
 // Wait for tx and find an event by name in receipt (best-effort when provider supports receipts)
-export async function waitForTxAndFindEvent(provider: any, txHash: string, eventName: string) {
+export async function waitForTxAndFindEvent(
+  provider: any,
+  txHash: string,
+  eventName: string,
+) {
   if (!provider || !txHash) return null;
   try {
     if (typeof provider.getTransactionReceipt === 'function') {
       const receipt = await provider.getTransactionReceipt(txHash);
-      if (!receipt || !Array.isArray((receipt as any).events)) return null;
-      const events: any[] = (receipt as any).events;
+      if (!receipt || !Array.isArray(receipt.events)) return null;
+      const events: any[] = receipt.events;
       if (!starknetLib || !starknetLib.hash) return { receipt };
       const selector = starknetLib.hash.getSelectorFromName(eventName);
-      const found = events.find((e) => Array.isArray(e.keys) && e.keys[0] === selector);
+      const found = events.find(
+        (e) => Array.isArray(e.keys) && e.keys[0] === selector,
+      );
       return { event: found ?? null, receipt };
     }
   } catch (err) {
@@ -335,53 +427,130 @@ export async function waitForTxAndFindEvent(provider: any, txHash: string, event
 }
 
 // ---------------- SwapEscrow helpers ----------------
-export async function executeFundSwap(accountOrProvider: any, escrowAddress: string, swapId: string) {
-  return executeFunction(accountOrProvider, escrowAddress, 'fund_swap', [swapId]);
+export async function executeFundSwap(
+  accountOrProvider: any,
+  escrowAddress: string,
+  swapId: string,
+) {
+  return executeFunction(accountOrProvider, escrowAddress, 'fund_swap', [
+    swapId,
+  ]);
 }
 
-export async function executeCompleteSwap(accountOrProvider: any, escrowAddress: string, swapId: string, secret: string) {
-  return executeFunction(accountOrProvider, escrowAddress, 'complete_swap', [swapId, secret]);
+export async function executeCompleteSwap(
+  accountOrProvider: any,
+  escrowAddress: string,
+  swapId: string,
+  secret: string,
+) {
+  return executeFunction(accountOrProvider, escrowAddress, 'complete_swap', [
+    swapId,
+    secret,
+  ]);
 }
 
-export async function executeRefundSwap(accountOrProvider: any, escrowAddress: string, swapId: string) {
-  return executeFunction(accountOrProvider, escrowAddress, 'refund_swap', [swapId]);
+export async function executeRefundSwap(
+  accountOrProvider: any,
+  escrowAddress: string,
+  swapId: string,
+) {
+  return executeFunction(accountOrProvider, escrowAddress, 'refund_swap', [
+    swapId,
+  ]);
 }
 
-export async function getSwap(exec: any, escrowAddress: string, swapId: string) {
-  const resp = await callViewFunction(exec, escrowAddress, 'get_swap', [swapId]);
+export async function getSwap(
+  exec: any,
+  escrowAddress: string,
+  swapId: string,
+) {
+  const resp = await callViewFunction(exec, escrowAddress, 'get_swap', [
+    swapId,
+  ]);
   return parseAtomicSwapResponse(resp?.result ?? resp);
 }
 
-export async function getSwapStatus(exec: any, escrowAddress: string, swapId: string) {
-  const resp = await callViewFunction(exec, escrowAddress, 'get_swap_status', [swapId]);
+export async function getSwapStatus(
+  exec: any,
+  escrowAddress: string,
+  swapId: string,
+) {
+  const resp = await callViewFunction(exec, escrowAddress, 'get_swap_status', [
+    swapId,
+  ]);
   const arr = Array.isArray(resp.result) ? resp.result : resp;
   return Array.isArray(arr) ? arr[0] : arr;
 }
 
-export async function canRefund(exec: any, escrowAddress: string, swapId: string) {
-  const resp = await callViewFunction(exec, escrowAddress, 'can_refund', [swapId]);
+export async function canRefund(
+  exec: any,
+  escrowAddress: string,
+  swapId: string,
+) {
+  const resp = await callViewFunction(exec, escrowAddress, 'can_refund', [
+    swapId,
+  ]);
   const arr = Array.isArray(resp.result) ? resp.result : resp;
   return Array.isArray(arr) ? Boolean(arr[0]) : Boolean(arr);
 }
 
 // ---------------- ZKBTC helpers ----------------
-export async function executeNativeMint(accountOrProvider: any, zkbtcAddress: string, to: string, amount: string | number | bigint, btcTxId: string) {
+export async function executeNativeMint(
+  accountOrProvider: any,
+  zkbtcAddress: string,
+  to: string,
+  amount: string | number | bigint,
+  btcTxId: string,
+) {
   const parts = toUint256Parts(amount);
-  return executeFunction(accountOrProvider, zkbtcAddress, 'native_mint', [to, parts[0], parts[1], btcTxId]);
+  return executeFunction(accountOrProvider, zkbtcAddress, 'native_mint', [
+    to,
+    parts[0],
+    parts[1],
+    btcTxId,
+  ]);
 }
 
-export async function executeNativeBurn(accountOrProvider: any, zkbtcAddress: string, from: string, amount: string | number | bigint, btcAddress: string) {
+export async function executeNativeBurn(
+  accountOrProvider: any,
+  zkbtcAddress: string,
+  from: string,
+  amount: string | number | bigint,
+  btcAddress: string,
+) {
   const parts = toUint256Parts(amount);
-  return executeFunction(accountOrProvider, zkbtcAddress, 'native_burn', [from, parts[0], parts[1], btcAddress]);
+  return executeFunction(accountOrProvider, zkbtcAddress, 'native_burn', [
+    from,
+    parts[0],
+    parts[1],
+    btcAddress,
+  ]);
 }
 
-export async function executeBridgeMint(accountOrProvider: any, zkbtcAddress: string, to: string, amount: string | number | bigint, btcTxId: string) {
+export async function executeBridgeMint(
+  accountOrProvider: any,
+  zkbtcAddress: string,
+  to: string,
+  amount: string | number | bigint,
+  btcTxId: string,
+) {
   const parts = toUint256Parts(amount);
-  return executeFunction(accountOrProvider, zkbtcAddress, 'bridge_mint', [to, parts[0], parts[1], btcTxId]);
+  return executeFunction(accountOrProvider, zkbtcAddress, 'bridge_mint', [
+    to,
+    parts[0],
+    parts[1],
+    btcTxId,
+  ]);
 }
 
-export async function getMintRequest(exec: any, zkbtcAddress: string, btcTxId: string) {
-  const resp = await callViewFunction(exec, zkbtcAddress, 'get_mint_request', [btcTxId]);
+export async function getMintRequest(
+  exec: any,
+  zkbtcAddress: string,
+  btcTxId: string,
+) {
+  const resp = await callViewFunction(exec, zkbtcAddress, 'get_mint_request', [
+    btcTxId,
+  ]);
   return resp?.result ?? resp;
 }
 
@@ -390,79 +559,209 @@ export async function getFeeConfig(exec: any, zkbtcAddress: string) {
   return resp?.result ?? resp;
 }
 
-export async function isBridgeWhitelisted(exec: any, zkbtcAddress: string, bridgeAddr: string) {
-  const resp = await callViewFunction(exec, zkbtcAddress, 'is_bridge_whitelisted', [bridgeAddr]);
+export async function isBridgeWhitelisted(
+  exec: any,
+  zkbtcAddress: string,
+  bridgeAddr: string,
+) {
+  const resp = await callViewFunction(
+    exec,
+    zkbtcAddress,
+    'is_bridge_whitelisted',
+    [bridgeAddr],
+  );
   const arr = Array.isArray(resp.result) ? resp.result : resp;
   return Array.isArray(arr) ? Boolean(arr[0]) : Boolean(arr);
 }
 
 // ---------------- BitcoinBridge helpers ----------------
-export function prepareDepositBTCCalldata(opts: { txid: string; vout: number; amount: number | string; script_pubkey: string; address: string; proof: string[]; block_height: number | string }) {
+export function prepareDepositBTCCalldata(opts: {
+  txid: string;
+  vout: number;
+  amount: number | string;
+  script_pubkey: string;
+  address: string;
+  proof: string[];
+  block_height: number | string;
+}) {
   const a = String(opts.amount);
-  return [opts.txid, String(opts.vout), a, opts.script_pubkey, opts.address, ...(opts.proof ?? []), String(opts.block_height)];
+  return [
+    opts.txid,
+    String(opts.vout),
+    a,
+    opts.script_pubkey,
+    opts.address,
+    ...(opts.proof ?? []),
+    String(opts.block_height),
+  ];
 }
 
-export async function executeDepositBTC(accountOrProvider: any, bridgeAddress: string, calldata: any[]) {
-  return executeFunction(accountOrProvider, bridgeAddress, 'deposit_btc', calldata);
+export async function executeDepositBTC(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  calldata: any[],
+) {
+  return executeFunction(
+    accountOrProvider,
+    bridgeAddress,
+    'deposit_btc',
+    calldata,
+  );
 }
 
-export async function executeInitiateWithdrawal(accountOrProvider: any, bridgeAddress: string, amount: string | number | bigint, btcAddress: string) {
+export async function executeInitiateWithdrawal(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  amount: string | number | bigint,
+  btcAddress: string,
+) {
   const a = toUint256Parts(amount);
-  return executeFunction(accountOrProvider, bridgeAddress, 'initiate_withdrawal', [a[0], a[1], btcAddress]);
+  return executeFunction(
+    accountOrProvider,
+    bridgeAddress,
+    'initiate_withdrawal',
+    [a[0], a[1], btcAddress],
+  );
 }
 
-export async function executeSignWithdrawal(accountOrProvider: any, bridgeAddress: string, withdrawalId: string) {
-  return executeFunction(accountOrProvider, bridgeAddress, 'sign_withdrawal', [withdrawalId]);
+export async function executeSignWithdrawal(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  withdrawalId: string,
+) {
+  return executeFunction(accountOrProvider, bridgeAddress, 'sign_withdrawal', [
+    withdrawalId,
+  ]);
 }
 
-export async function executeExecuteWithdrawal(accountOrProvider: any, bridgeAddress: string, withdrawalId: string, btcTxId: string) {
-  return executeFunction(accountOrProvider, bridgeAddress, 'execute_withdrawal', [withdrawalId, btcTxId]);
+export async function executeExecuteWithdrawal(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  withdrawalId: string,
+  btcTxId: string,
+) {
+  return executeFunction(
+    accountOrProvider,
+    bridgeAddress,
+    'execute_withdrawal',
+    [withdrawalId, btcTxId],
+  );
 }
 
 export async function getBridgeStats(exec: any, bridgeAddress: string) {
-  const resp = await callViewFunction(exec, bridgeAddress, 'get_bridge_stats', []);
+  const resp = await callViewFunction(
+    exec,
+    bridgeAddress,
+    'get_bridge_stats',
+    [],
+  );
   return resp?.result ?? resp;
 }
 
-export async function getBridgeUTXO(exec: any, bridgeAddress: string, utxoHash: string) {
-  const resp = await callViewFunction(exec, bridgeAddress, 'get_utxo', [utxoHash]);
+export async function getBridgeUTXO(
+  exec: any,
+  bridgeAddress: string,
+  utxoHash: string,
+) {
+  const resp = await callViewFunction(exec, bridgeAddress, 'get_utxo', [
+    utxoHash,
+  ]);
   return resp?.result ?? resp;
 }
 
 // ---------------- StarknetAtomicBridge helpers ----------------
-export function prepareBridgeInitiateCalldata(opts: { counterparty: string; bridge_type: number; amount_btc: string | number | bigint; amount_strk: string | number | bigint; hashlock: string; timelock: string | number | bigint }) {
+export function prepareBridgeInitiateCalldata(opts: {
+  counterparty: string;
+  bridge_type: number;
+  amount_btc: string | number | bigint;
+  amount_strk: string | number | bigint;
+  hashlock: string;
+  timelock: string | number | bigint;
+}) {
   const a = toUint256Parts(opts.amount_btc);
   const b = toUint256Parts(opts.amount_strk);
-  return [opts.counterparty, String(opts.bridge_type), a[0], a[1], b[0], b[1], opts.hashlock, String(opts.timelock)];
+  return [
+    opts.counterparty,
+    String(opts.bridge_type),
+    a[0],
+    a[1],
+    b[0],
+    b[1],
+    opts.hashlock,
+    String(opts.timelock),
+  ];
 }
 
-export async function executeBridgeInitiateSwap(accountOrProvider: any, bridgeAddress: string, calldata: any[]) {
-  return executeFunction(accountOrProvider, bridgeAddress, 'initiate_swap', calldata);
+export async function executeBridgeInitiateSwap(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  calldata: any[],
+) {
+  return executeFunction(
+    accountOrProvider,
+    bridgeAddress,
+    'initiate_swap',
+    calldata,
+  );
 }
 
-export async function executeBridgeFundSwap(accountOrProvider: any, bridgeAddress: string, swapId: string) {
-  return executeFunction(accountOrProvider, bridgeAddress, 'fund_swap', [swapId]);
+export async function executeBridgeFundSwap(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  swapId: string,
+) {
+  return executeFunction(accountOrProvider, bridgeAddress, 'fund_swap', [
+    swapId,
+  ]);
 }
 
-export async function executeBridgeCompleteSwap(accountOrProvider: any, bridgeAddress: string, swapId: string, secret: string, btcTxId?: string) {
+export async function executeBridgeCompleteSwap(
+  accountOrProvider: any,
+  bridgeAddress: string,
+  swapId: string,
+  secret: string,
+  btcTxId?: string,
+) {
   const args = [swapId, secret];
   if (btcTxId) args.push(btcTxId);
-  return executeFunction(accountOrProvider, bridgeAddress, 'complete_swap', args);
+  return executeFunction(
+    accountOrProvider,
+    bridgeAddress,
+    'complete_swap',
+    args,
+  );
 }
 
-export async function getBridgeSwap(exec: any, bridgeAddress: string, swapId: string) {
-  const resp = await callViewFunction(exec, bridgeAddress, 'get_swap', [swapId]);
+export async function getBridgeSwap(
+  exec: any,
+  bridgeAddress: string,
+  swapId: string,
+) {
+  const resp = await callViewFunction(exec, bridgeAddress, 'get_swap', [
+    swapId,
+  ]);
   return resp?.result ?? resp;
 }
 
 export async function getBridgeStatsSimple(exec: any, bridgeAddress: string) {
-  const resp = await callViewFunction(exec, bridgeAddress, 'get_bridge_stats', []);
+  const resp = await callViewFunction(
+    exec,
+    bridgeAddress,
+    'get_bridge_stats',
+    [],
+  );
   return resp?.result ?? resp;
 }
 
 // ---------------- ZKAtomicSwapVerifier helpers ----------------
-export async function getVerifierProof(exec: any, verifierAddress: string, proofId: string) {
-  const resp = await callViewFunction(exec, verifierAddress, 'get_proof', [proofId]);
+export async function getVerifierProof(
+  exec: any,
+  verifierAddress: string,
+  proofId: string,
+) {
+  const resp = await callViewFunction(exec, verifierAddress, 'get_proof', [
+    proofId,
+  ]);
   return resp?.result ?? resp;
 }
 

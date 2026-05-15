@@ -1,6 +1,4 @@
-import * as crypto from 'react-native-crypto';
-// Note: react-native-crypto requires shimming to work in RN.
-// This is a stub for the hackathon demo.
+// Crypto routines are mocked in this hackathon stub.
 
 export const generateSecret = () => {
   const secret = Math.random().toString(36).substring(2, 15);

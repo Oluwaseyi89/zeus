@@ -1,4 +1,11 @@
-import { Body, Controller, Post, Headers, ForbiddenException, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Headers,
+  ForbiddenException,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { StarknetProxyService } from './starknet-proxy.service';
 
@@ -20,9 +27,11 @@ export class StarknetController {
     },
   ) {
     const configured = process.env.ADMIN_API_KEY;
-    if (!configured || configured.length === 0) throw new ForbiddenException('Admin API key not configured on server');
+    if (!configured || configured.length === 0)
+      throw new ForbiddenException('Admin API key not configured on server');
     // ApiKeyGuard already validated, but keep extra server-side check
-    if (!adminKey || adminKey !== configured) throw new ForbiddenException('Invalid admin key');
+    if (!adminKey || adminKey !== configured)
+      throw new ForbiddenException('Invalid admin key');
 
     const { abiFile, contractAddress, method, params, options } = body;
     return this.proxy.call(abiFile, contractAddress, method, params, options);

@@ -61,11 +61,19 @@ export class SwapService {
         });
 
         this.logger.debug('Calling on-chain initiate_swap (best-effort)');
-        const res = await this.starknetAccount.invoke(escrow, 'initiate_swap', calldata);
-        this.logger.debug('Starknet initiate_swap result: ' + JSON.stringify(res));
+        const res = await this.starknetAccount.invoke(
+          escrow,
+          'initiate_swap',
+          calldata,
+        );
+        this.logger.debug(
+          'Starknet initiate_swap result: ' + JSON.stringify(res),
+        );
       }
     } catch (e) {
-      this.logger.warn('On-chain initiate_swap failed (non-fatal): ' + String(e));
+      this.logger.warn(
+        'On-chain initiate_swap failed (non-fatal): ' + String(e),
+      );
     }
 
     // notify initiator and counterparty in-app when created
@@ -91,7 +99,12 @@ export class SwapService {
     // publish a concise delta to the swap room for realtime clients
     try {
       const room = `swap:${saved.swapId}`;
-      await this.notifications.publishToRoom(room, 'swap.delta', { type: 'created', swapId: saved.swapId, initiator: saved.initiator, counterparty: saved.counterparty });
+      await this.notifications.publishToRoom(room, 'swap.delta', {
+        type: 'created',
+        swapId: saved.swapId,
+        initiator: saved.initiator,
+        counterparty: saved.counterparty,
+      });
     } catch (e) {
       this.logger.debug('publish swap delta failed: ' + String(e));
     }
@@ -110,7 +123,11 @@ export class SwapService {
 
   async fundOnChain(escrowAddress: string, swapId: string) {
     // Use account invoke helper which handles fee/wait
-    const res = await this.starknetAccount.invokeWithOptions(escrowAddress, 'fund_swap', [swapId]);
+    const res = await this.starknetAccount.invokeWithOptions(
+      escrowAddress,
+      'fund_swap',
+      [swapId],
+    );
     try {
       // best-effort: notify participants by looking up swap
       const s = await this.repo.findOneBy({ swapId });
@@ -134,7 +151,10 @@ export class SwapService {
     }
     try {
       const deltaRoom = `swap:${swapId}`;
-      await this.notifications.publishToRoom(deltaRoom, 'swap.delta', { type: 'funded', swapId });
+      await this.notifications.publishToRoom(deltaRoom, 'swap.delta', {
+        type: 'funded',
+        swapId,
+      });
     } catch (e) {
       this.logger.debug('publish fund delta failed: ' + String(e));
     }
@@ -142,20 +162,37 @@ export class SwapService {
   }
 
   async completeOnChain(escrowAddress: string, swapId: string, secret: string) {
-    const res = await this.starknetAccount.invokeWithOptions(escrowAddress, 'complete_swap', [swapId, secret]);
+    const res = await this.starknetAccount.invokeWithOptions(
+      escrowAddress,
+      'complete_swap',
+      [swapId, secret],
+    );
     try {
       const s = await this.repo.findOneBy({ swapId });
       if (s) {
         const room = `swap:${swapId}`;
-        if (s.initiator) await this.notifications.sendNotification('inapp', s.initiator, { title: 'Swap Completed', body: `Swap ${swapId} completed`, meta: { swapId, room } });
-        if (s.counterparty) await this.notifications.sendNotification('inapp', s.counterparty, { title: 'Swap Completed', body: `Swap ${swapId} completed`, meta: { swapId, room } });
+        if (s.initiator)
+          await this.notifications.sendNotification('inapp', s.initiator, {
+            title: 'Swap Completed',
+            body: `Swap ${swapId} completed`,
+            meta: { swapId, room },
+          });
+        if (s.counterparty)
+          await this.notifications.sendNotification('inapp', s.counterparty, {
+            title: 'Swap Completed',
+            body: `Swap ${swapId} completed`,
+            meta: { swapId, room },
+          });
       }
     } catch (e) {
       this.logger.debug('notify complete failed: ' + String(e));
     }
     try {
       const deltaRoom = `swap:${swapId}`;
-      await this.notifications.publishToRoom(deltaRoom, 'swap.delta', { type: 'completed', swapId });
+      await this.notifications.publishToRoom(deltaRoom, 'swap.delta', {
+        type: 'completed',
+        swapId,
+      });
     } catch (e) {
       this.logger.debug('publish complete delta failed: ' + String(e));
     }
@@ -163,10 +200,18 @@ export class SwapService {
   }
 
   async refundOnChain(escrowAddress: string, swapId: string) {
-    const res = await this.starknetAccount.invokeWithOptions(escrowAddress, 'refund_swap', [swapId]);
+    const res = await this.starknetAccount.invokeWithOptions(
+      escrowAddress,
+      'refund_swap',
+      [swapId],
+    );
     try {
       const s = await this.repo.findOneBy({ swapId });
-      if (s && s.initiator) await this.notifications.sendNotification('inapp', s.initiator, { title: 'Swap Refunded', body: `Swap ${swapId} was refunded` });
+      if (s && s.initiator)
+        await this.notifications.sendNotification('inapp', s.initiator, {
+          title: 'Swap Refunded',
+          body: `Swap ${swapId} was refunded`,
+        });
     } catch (e) {
       this.logger.debug('notify refund failed: ' + String(e));
     }

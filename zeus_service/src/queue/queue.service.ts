@@ -9,7 +9,9 @@ export class QueueService {
   constructor() {
     const url = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379/0';
     this.client = new Redis(url);
-    this.client.on('error', (e) => this.logger.warn('Redis error: ' + String(e)));
+    this.client.on('error', (e) =>
+      this.logger.warn('Redis error: ' + String(e)),
+    );
   }
 
   // enqueue a job to a named queue (LPUSH -> BRPOP consumer)

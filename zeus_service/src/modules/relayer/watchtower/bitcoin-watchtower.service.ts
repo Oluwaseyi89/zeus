@@ -27,9 +27,13 @@ export class BitcoinWatchtowerService {
         this.consecutiveFailures = 0; // reset on success
       } catch (err) {
         this.consecutiveFailures += 1;
-        this.logger.warn(`watchtower poll error (#${this.consecutiveFailures}): ${String(err)}`);
+        this.logger.warn(
+          `watchtower poll error (#${this.consecutiveFailures}): ${String(err)}`,
+        );
         if (this.consecutiveFailures >= this.maxFailures) {
-          this.logger.warn('Max consecutive watchtower failures reached; stopping watchtower until restart.');
+          this.logger.warn(
+            'Max consecutive watchtower failures reached; stopping watchtower until restart.',
+          );
           this.polling = false;
           break;
         }

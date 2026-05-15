@@ -1,0 +1,59 @@
+name: zeus_app_ci
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+    paths:
+      - 'zeus_app/**'
+      - '.github/workflows/zeus_app_ci.yml'
+  pull_request:
+    paths:
+      - 'zeus_app/**'
+      - '.github/workflows/zeus_app_ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zeus_app_ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate zeus_app
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: zeus_app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: zeus_app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint
+        run: npx expo lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: |
+          if find src -type f \( -name '*.spec.ts' -o -name '*.spec.tsx' -o -name '*.test.ts' -o -name '*.test.tsx' \) | grep -q .; then
+            npx --yes --package jest jest --ci --runInBand --passWithNoTests
+          else
+            echo 'No app test files found; skipping Jest'
+          fi

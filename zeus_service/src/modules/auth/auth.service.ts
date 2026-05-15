@@ -2,13 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 let starknetLib: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   starknetLib = require('starknet');
 } catch (e) {
   starknetLib = null;
 }
 
-interface TokenRecord { token: string; userId: string }
+interface TokenRecord {
+  token: string;
+  userId: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -39,7 +41,9 @@ export class AuthService {
   // JWT helpers for mobile sessions
   createJwtForUser(userId: string) {
     const payload = { sub: userId };
-    const token = jwt.sign(payload, this.jwtSecret(), { expiresIn: process.env.JWT_EXPIRES_IN ?? '7d' });
+    const token = jwt.sign(payload, this.jwtSecret(), {
+      expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+    });
     return token;
   }
 
@@ -84,12 +88,20 @@ export class AuthService {
    * Accepts signature as array or hex string. If `publicKey` is provided, it's used for verification.
    * In non-production (NODE_ENV !== 'production'), falls back to accepting the proof when lib not available.
    */
-  verifyWalletSignature(address: string, nonce: string, signature: any, publicKey?: string): boolean {
+  verifyWalletSignature(
+    address: string,
+    nonce: string,
+    signature: any,
+    publicKey?: string,
+  ): boolean {
     // prefer starknet ec verify if available and publicKey provided
     try {
       if (starknetLib && starknetLib.ec && publicKey) {
         // compute message hash - best-effort using common util
-        const hashFn = starknetLib.hash?.computeHashOnElements ?? starknetLib.default?.hash?.computeHashOnElements ?? null;
+        const hashFn =
+          starknetLib.hash?.computeHashOnElements ??
+          starknetLib.default?.hash?.computeHashOnElements ??
+          null;
         let msgHash: any = nonce;
         if (hashFn) {
           try {
@@ -103,7 +115,9 @@ export class AuthService {
         // Normalize signature formats: accept array or hex string like 0x<r><s>
         let sigArr: any[] | null = null;
         if (Array.isArray(signature) && signature.length >= 2) {
-          sigArr = signature.map((s) => (typeof s === 'bigint' ? s.toString() : s));
+          sigArr = signature.map((s) =>
+            typeof s === 'bigint' ? s.toString() : s,
+          );
         } else if (typeof signature === 'string') {
           const hex = signature.replace(/^0x/, '');
           if (hex.length >= 2) {

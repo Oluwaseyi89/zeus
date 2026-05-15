@@ -6,11 +6,17 @@ import { NotificationService } from '../notification/notification.service';
 @Injectable()
 export class OrderbookService {
   private readonly logger = new Logger(OrderbookService.name);
-  constructor(private readonly starknet: StarknetService, private readonly notifications: NotificationService) {}
+  constructor(
+    private readonly starknet: StarknetService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   async submitOrder(order: any, userId?: string) {
     this.logger.debug('submitOrder ' + JSON.stringify(order));
-    const resp = { accepted: true, id: 'ord_' + Math.random().toString(36).slice(2) };
+    const resp = {
+      accepted: true,
+      id: 'ord_' + Math.random().toString(36).slice(2),
+    };
     // notify submitter and broadcast to market room if present
     try {
       const market = order?.market ?? 'global';
@@ -23,7 +29,12 @@ export class OrderbookService {
         });
       }
       // also broadcast to market room about the new order (delta)
-      await this.notifications.publishToRoom(room, 'order.delta', { type: 'new', id: resp.id, market, order });
+      await this.notifications.publishToRoom(room, 'order.delta', {
+        type: 'new',
+        id: resp.id,
+        market,
+        order,
+      });
     } catch (e) {
       this.logger.debug('notify submitter failed: ' + String(e));
     }

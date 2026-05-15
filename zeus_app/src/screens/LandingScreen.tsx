@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image, Dimensions , Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import WalletConnect from '@/components/WalletConnect';
 import { useWalletStore, useAuthStore } from '@/services/stateStore';
 import api from '@/services/apiClient';
 import { signWithArgent, signWithXverse, signWithWalletConnect } from '@/services/walletAuth';
-import { Alert, TouchableOpacity } from 'react-native';
 
 const LandingScreen = () => {
   const navigation = useNavigation<any>();
@@ -37,7 +36,7 @@ const LandingScreen = () => {
       }
       const signature = sigRes?.signature;
       const publicKey = sigRes?.publicKey;
-      if (signature) {
+      if (signature && walletLogin) {
         await walletLogin({ address, signature, publicKey });
       }
     } catch (e: any) {
@@ -60,7 +59,7 @@ const LandingScreen = () => {
       const nonceRes = await api.post('/auth/nonce', { address });
       const nonce = nonceRes?.data?.nonce || nonceRes?.data || null;
       // dynamic require so package is optional
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const sats = require('sats-connect');
       let sig: any = null;
       if (sats && typeof sats.requestSignature === 'function') {
@@ -70,7 +69,7 @@ const LandingScreen = () => {
         const res = await sats.signMessage(nonce, { address });
         sig = res?.signature || res;
       }
-      if (sig) {
+      if (sig && walletLogin) {
         await walletLogin({ address, signature: sig });
       }
       setBitcoinAddress(address);

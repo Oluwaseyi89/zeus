@@ -7,7 +7,10 @@ import { NotificationService } from '../notification/notification.service';
 @Injectable()
 export class BitcoinVaultService {
   private readonly logger = new Logger(BitcoinVaultService.name);
-  constructor(private readonly starknet: StarknetService, private readonly notifications: NotificationService) {}
+  constructor(
+    private readonly starknet: StarknetService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   async getVaultStats(vaultAddress: string) {
     const api = createBTCVaultApi(vaultAddress, this.starknet);
@@ -27,21 +30,45 @@ export class BitcoinVaultService {
     bitcoinAddress: string,
     userId?: string,
   ) {
-    const calldata = utils.prepareRequestWithdrawalCalldata({ amount, bitcoin_address: bitcoinAddress });
+    const calldata = utils.prepareRequestWithdrawalCalldata({
+      amount,
+      bitcoin_address: bitcoinAddress,
+    });
     // Prefer to execute via an Account if configured
     try {
-      if (process.env.STARKNET_ACCOUNT_PRIVATE_KEY && process.env.STARKNET_ACCOUNT_ADDRESS) {
-        const acct = utils.instantiateWalletAccount(process.env.STARKNET_RPC_URL ?? '', process.env.STARKNET_ACCOUNT_ADDRESS, process.env.STARKNET_ACCOUNT_PRIVATE_KEY);
-        const res = await utils.executeRequestWithdrawal(acct, vaultAddress, calldata);
+      if (
+        process.env.STARKNET_ACCOUNT_PRIVATE_KEY &&
+        process.env.STARKNET_ACCOUNT_ADDRESS
+      ) {
+        const acct = utils.instantiateWalletAccount(
+          process.env.STARKNET_RPC_URL ?? '',
+          process.env.STARKNET_ACCOUNT_ADDRESS,
+          process.env.STARKNET_ACCOUNT_PRIVATE_KEY,
+        );
+        const res = await utils.executeRequestWithdrawal(
+          acct,
+          vaultAddress,
+          calldata,
+        );
         this.logger.debug('requestWithdrawal result: ' + JSON.stringify(res));
         return res;
       }
     } catch (err) {
-      this.logger.warn('Account execute failed, falling back to invokeContract: ' + String(err));
+      this.logger.warn(
+        'Account execute failed, falling back to invokeContract: ' +
+          String(err),
+      );
     }
     // Fallback to StarknetService invokeContract (dev stub)
-    const res = await this.starknet.invokeContract(process.env.STARKNET_ACCOUNT_ADDRESS ?? '', vaultAddress, 'request_withdrawal', calldata);
-    this.logger.debug('requestWithdrawal (fallback) result: ' + JSON.stringify(res));
+    const res = await this.starknet.invokeContract(
+      process.env.STARKNET_ACCOUNT_ADDRESS ?? '',
+      vaultAddress,
+      'request_withdrawal',
+      calldata,
+    );
+    this.logger.debug(
+      'requestWithdrawal (fallback) result: ' + JSON.stringify(res),
+    );
     // notify requester in-app if userId provided and broadcast to vault room
     try {
       if (userId) {
@@ -57,7 +84,12 @@ export class BitcoinVaultService {
     }
     try {
       const room = `vault:${vaultAddress}`;
-      await this.notifications.publishToRoom(room, 'vault.delta', { type: 'withdrawal_requested', vault: vaultAddress, amount, bitcoinAddress });
+      await this.notifications.publishToRoom(room, 'vault.delta', {
+        type: 'withdrawal_requested',
+        vault: vaultAddress,
+        amount,
+        bitcoinAddress,
+      });
     } catch (e) {
       this.logger.debug('publish vault delta failed: ' + String(e));
     }
