@@ -1,0 +1,67 @@
+name: zeus_stellar_ci
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+    paths:
+      - 'zeus_stellar/**'
+      - '.github/workflows/zeus_stellar_ci.yml'
+  pull_request:
+    paths:
+      - 'zeus_stellar/**'
+      - '.github/workflows/zeus_stellar_ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zeus_stellar_ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate zeus_stellar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: zeus_stellar
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32v1-none
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: zeus_stellar
+
+      - name: Install Stellar CLI
+        run: cargo install --locked stellar-cli --version 26.0.0
+
+      - name: Format check
+        run: cargo fmt --all --check
+
+      - name: Cargo check
+        run: cargo check --workspace --all-targets
+
+      - name: Cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --workspace
+
+      - name: Cargo build
+        run: cargo build --workspace --all-targets
+
+      - name: Stellar contract build
+        run: stellar contract build
