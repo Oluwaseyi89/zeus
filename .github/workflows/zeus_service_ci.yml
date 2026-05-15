@@ -1,0 +1,57 @@
+name: zeus_service_ci
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+    paths:
+      - 'zeus_service/**'
+      - '.github/workflows/zeus_service_ci.yml'
+  pull_request:
+    paths:
+      - 'zeus_service/**'
+      - '.github/workflows/zeus_service_ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zeus_service_ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate zeus_service
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: zeus_service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: zeus_service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test -- --runInBand
