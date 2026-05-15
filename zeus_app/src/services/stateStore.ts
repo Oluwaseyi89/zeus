@@ -4,6 +4,9 @@ import api, { setAuthToken } from './apiClient';
 import { saveSecret, getSecret } from './secureStorage';
 import { initSocket, subscribe, unsubscribe, closeSocket } from './socket';
 
+// register the store getter in a lightweight module to avoid circular imports
+import { setStoreGetter } from './storeRef';
+
 type WalletSlice = {
   starknetAddress: string | null;
   bitcoinAddress: string | null;
@@ -263,7 +266,4 @@ export const useOrderbookStore = () => {
   const submitOrder = useStore((s) => s.submitOrder);
   return useMemo(() => ({ orders, fetchOrders, submitOrder }), [orders, fetchOrders, submitOrder]);
 };
-
-// register the store getter in a lightweight module to avoid circular imports
-import { setStoreGetter } from './storeRef';
 try { setStoreGetter(useStore.getState); } catch (e) {}

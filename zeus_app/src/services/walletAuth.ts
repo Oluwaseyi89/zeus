@@ -19,7 +19,7 @@ function normalizeSignature(signature: any) {
 export async function signWithArgent(address: string, nonce: string) {
   try {
     // RN may expose provider on global or window
-    const g: any = typeof window !== 'undefined' ? window : global as any;
+    const g: any = globalThis as any;
     const provider = g?.starknet || g?.argent || g?.braavos;
     if (provider && typeof provider.signMessage === 'function') {
       const res = await provider.signMessage(nonce);
@@ -47,7 +47,7 @@ export async function signWithXverse(address: string, nonce: string) {
   // Try sats-connect (common RN-friendly Bitcoin signing helper) dynamically
   try {
     // dynamic import so package is optional
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const sats = require('sats-connect');
     if (sats) {
       try {
@@ -69,7 +69,7 @@ export async function signWithXverse(address: string, nonce: string) {
   } catch (e) {}
 
   try {
-    const g: any = typeof window !== 'undefined' ? window : global as any;
+    const g: any = globalThis as any;
     const provider = g?.xverse || g?.Xverse;
     if (provider && typeof provider.signMessage === 'function') {
       const res = await provider.signMessage(nonce);

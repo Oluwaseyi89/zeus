@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useWalletStore, useAuthStore, useNotificationStore } from '@/services/stateStore';
-import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 
 const ThunderBolt = () => (

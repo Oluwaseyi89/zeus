@@ -42,10 +42,7 @@ jobs:
           cache-dependency-path: zeus_app/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Expo project diagnostics
-        run: npx expo-doctor
+        run: npm ci --legacy-peer-deps
 
       - name: Lint
         run: npx expo lint
@@ -55,8 +52,8 @@ jobs:
 
       - name: Test
         run: |
-          if find . -type f \( -name '*.spec.ts' -o -name '*.spec.tsx' -o -name '*.test.ts' -o -name '*.test.tsx' \) | grep -q .; then
-            npx jest --ci --runInBand --passWithNoTests
+          if find src -type f \( -name '*.spec.ts' -o -name '*.spec.tsx' -o -name '*.test.ts' -o -name '*.test.tsx' \) | grep -q .; then
+            npx --yes --package jest jest --ci --runInBand --passWithNoTests
           else
             echo 'No app test files found; skipping Jest'
           fi

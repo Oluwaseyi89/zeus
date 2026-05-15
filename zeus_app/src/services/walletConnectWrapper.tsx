@@ -3,7 +3,7 @@
 // package and fall back to safe no-op implementations when unavailable.
 // This file exports two helpers: `useWC()` (hook) and `useWCManager()`.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function makeFallbackConnector(): any {
   return {
     connected: false,
@@ -21,7 +21,7 @@ const FALLBACK_CONNECTOR = makeFallbackConnector();
 
 export function useWC() {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const wc = require('@walletconnect/react-native-dapp');
     if (wc && typeof wc.useWalletConnect === 'function') return wc.useWalletConnect();
   } catch (e) {
