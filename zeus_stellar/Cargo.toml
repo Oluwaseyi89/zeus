@@ -1,11 +1,20 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/*",
   "contracts/*",
 ]
 
 [workspace.dependencies]
 soroban-sdk = "23"
+zeus-access-control = { path = "crates/zeus_access_control", version = "0.1.0" }
+zeus-common = { path = "crates/zeus_common", version = "0.1.0" }
+zeus-crypto = { path = "crates/zeus_crypto", version = "0.1.0" }
+zeus-errors = { path = "crates/zeus_errors", version = "0.1.0" }
+zeus-events = { path = "crates/zeus_events", version = "0.1.0" }
+zeus-interfaces = { path = "crates/zeus_interfaces", version = "0.1.0" }
+zeus-math = { path = "crates/zeus_math", version = "0.1.0" }
+zeus-types = { path = "crates/zeus_types", version = "0.1.0" }
 
 [profile.release]
 opt-level = "z"

@@ -1910,8 +1910,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "zeus-access-control"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-errors",
+ "zeus-types",
+]
+
+[[package]]
+name = "zeus-common"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-errors",
+ "zeus-types",
+]
+
+[[package]]
+name = "zeus-crypto"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-errors",
+]
+
+[[package]]
+name = "zeus-errors"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-types",
+]
+
+[[package]]
+name = "zeus-events"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-types",
+]
+
+[[package]]
 name = "zeus-gov-token"
 version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "zeus-interfaces"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "zeus-errors",
+ "zeus-types",
+]
+
+[[package]]
+name = "zeus-math"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "zeus-types"
+version = "0.1.0"
 dependencies = [
  "soroban-sdk",
 ]
