@@ -1,0 +1,10 @@
+[package]
+name = "zeus-common"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+zeus-errors = { workspace = true }
+zeus-types = { workspace = true }

@@ -1,0 +1,9 @@
+[package]
+name = "zeus-events"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+zeus-types = { workspace = true }
