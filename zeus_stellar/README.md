@@ -107,8 +107,20 @@ cargo check
 
 As implementation files are added, run per-crate checks and tests from this workspace root.
 
+Validate Soroban contract manifest coverage and consistency:
+
+```bash
+bash scripts/verify_contract_manifests.sh
+```
+
+Run the same validation plus independent compile checks for each contract package:
+
+```bash
+bash scripts/verify_contract_manifests.sh --with-compile
+```
+
 ## Roadmap
-1. Add contract Cargo.toml manifests for each protocol contract crate.
+1. Keep manifest standards enforced for all Soroban contract crates.
 2. Define shared types/events/interfaces in crates.
 3. Implement contract modules incrementally by domain.
 4. Add integration tests under test/integration.
