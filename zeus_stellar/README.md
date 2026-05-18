@@ -14,8 +14,9 @@ This package contains the Stellar Soroban contract workspace for ZEUS. It mirror
 4. [Contract Domains](#contract-domains)
 5. [Shared Crates](#shared-crates)
 6. [Scripts and Artifacts](#scripts-and-artifacts)
-7. [Quick Start](#quick-start)
-8. [Roadmap](#roadmap)
+7. [Workspace Membership Validation](#workspace-membership-validation)
+8. [Quick Start](#quick-start)
+9. [Roadmap](#roadmap)
 
 ## Purpose
 - Establish a Stellar-native execution layer for ZEUS swap and bridge primitives.
@@ -97,7 +98,20 @@ zeus_stellar/
 - scripts/invoke: invocation and smoke checks.
 - scripts/upgrade: migration and upgrade runbooks.
 - scripts/bindings: client binding generation pipelines.
+- scripts/verify_workspace_members.sh: verifies shared and contract crates are active workspace members and checks for duplicate member entries.
 - artifacts/wasm and artifacts/abi: compiled outputs and interface data.
+
+## Workspace Membership Validation
+Run workspace membership verification from the zeus_stellar root:
+
+```bash
+bash scripts/verify_workspace_members.sh
+```
+
+This check asserts:
+- all expected shared crates under crates are workspace members
+- contract crates remain workspace members
+- no duplicate entries exist in [workspace].members
 
 ## Quick Start
 ```bash
