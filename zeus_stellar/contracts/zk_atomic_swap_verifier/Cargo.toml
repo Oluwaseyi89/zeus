@@ -10,3 +10,4 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
+zeus-interfaces = { workspace = true }
