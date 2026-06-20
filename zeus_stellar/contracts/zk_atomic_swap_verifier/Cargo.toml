@@ -10,3 +10,4 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
+stellar-risc0-verifier-sdk = { workspace = true }
