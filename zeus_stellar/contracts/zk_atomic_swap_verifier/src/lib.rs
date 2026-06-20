@@ -1,6 +1,9 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, contractevent, panic_with_error, Address, Bytes, BytesN, Env, Symbol, xdr::FromXdr};
-use zeus_interfaces::{IZKAtomicSwapVerifier, BtcSwapJournal};
+use soroban_sdk::{
+    contract, contractevent, contractimpl, contracttype, panic_with_error, xdr::FromXdr, Address,
+    Bytes, BytesN, Env, Symbol,
+};
+use zeus_interfaces::{BtcSwapJournal, IZKAtomicSwapVerifier};
 
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -29,8 +32,10 @@ pub enum StorageKey {
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ZkBtcVerifiedEvent {
-    #[topic] pub topic: Symbol,
-    #[topic] pub btc_tx_hash: BytesN<32>,
+    #[topic]
+    pub topic: Symbol,
+    #[topic]
+    pub btc_tx_hash: BytesN<32>,
     pub recipient: Address,
     pub amount: u128,
 }
@@ -38,7 +43,12 @@ pub struct ZkBtcVerifiedEvent {
 pub mod nethermind {
     #[soroban_sdk::contractclient(name = "NethermindRisc0Client")]
     pub trait NethermindRisc0Verifier {
-        fn verify(env: soroban_sdk::Env, seal: soroban_sdk::Bytes, image_id: soroban_sdk::BytesN<32>, journal_digest: soroban_sdk::BytesN<32>);
+        fn verify(
+            env: soroban_sdk::Env,
+            seal: soroban_sdk::Bytes,
+            image_id: soroban_sdk::BytesN<32>,
+            journal_digest: soroban_sdk::BytesN<32>,
+        );
     }
 }
 
@@ -53,23 +63,35 @@ impl ZkAtomicSwapVerifier {
         }
 
         env.storage().instance().set(&StorageKey::Admin, &admin);
-        env.storage().instance().set(&StorageKey::RouterId, &router_id);
+        env.storage()
+            .instance()
+            .set(&StorageKey::RouterId, &router_id);
         env.storage().instance().set(&StorageKey::Active, &true);
-        env.storage().instance().set(&StorageKey::Initialized, &true);
+        env.storage()
+            .instance()
+            .set(&StorageKey::Initialized, &true);
     }
 
     pub fn update_router_id(env: Env, new_router_id: Address) {
-        let admin: Address = env.storage().instance().get(&StorageKey::Admin)
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierError::NotInitialized));
-        
+
         admin.require_auth();
-        env.storage().instance().set(&StorageKey::RouterId, &new_router_id);
+        env.storage()
+            .instance()
+            .set(&StorageKey::RouterId, &new_router_id);
     }
 
     pub fn set_active_status(env: Env, status: bool) {
-        let admin: Address = env.storage().instance().get(&StorageKey::Admin)
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierError::NotInitialized));
-        
+
         admin.require_auth();
         env.storage().instance().set(&StorageKey::Active, &status);
     }
@@ -77,7 +99,6 @@ impl ZkAtomicSwapVerifier {
 
 #[contractimpl]
 impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
-    
     fn verify_btc_swap(
         env: Env,
         journal_bytes: Bytes,
@@ -88,7 +109,10 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
             panic_with_error!(&env, VerifierError::VerifierPaused);
         }
 
-        let nethermind_router_id: Address = env.storage().instance().get(&StorageKey::RouterId)
+        let nethermind_router_id: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::RouterId)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierError::NotInitialized));
 
         let raw_hash = env.crypto().sha256(&journal_bytes);
@@ -112,7 +136,8 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
             btc_tx_hash: journal.btc_tx_hash.clone(),
             recipient: journal.recipient_stellar.clone(),
             amount: journal.swap_amount,
-        }.publish(&env);
+        }
+        .publish(&env);
 
         journal
     }
@@ -122,22 +147,35 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
     }
 
     fn whitelist_relayer(env: Env, relayer: Address) {
-        let admin: Address = env.storage().instance().get(&StorageKey::Admin)
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierError::NotInitialized));
         admin.require_auth();
 
-        env.storage().instance().set(&StorageKey::Relayer(relayer), &true);
+        env.storage()
+            .instance()
+            .set(&StorageKey::Relayer(relayer), &true);
     }
 
     fn remove_relayer(env: Env, relayer: Address) {
-        let admin: Address = env.storage().instance().get(&StorageKey::Admin)
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, VerifierError::NotInitialized));
         admin.require_auth();
 
-        env.storage().instance().remove(&StorageKey::Relayer(relayer));
+        env.storage()
+            .instance()
+            .remove(&StorageKey::Relayer(relayer));
     }
 
     fn get_verifier_status(env: Env) -> bool {
-        env.storage().instance().get(&StorageKey::Active).unwrap_or(false)
+        env.storage()
+            .instance()
+            .get(&StorageKey::Active)
+            .unwrap_or(false)
     }
 }
