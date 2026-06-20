@@ -6,7 +6,11 @@ members = [
 ]
 
 [workspace.dependencies]
-soroban-sdk = "23"
+soroban-sdk = "23.0.0" # Lock explicitly to match latest v23 environment
+# Bring in Nethermind's Soroban Verifier client types
+stellar-risc0-verifier-sdk = { git = "https://github.com/NethermindEth/stellar-risc0-verifier.git", version = "0.1.0" }
+
+# Your internal crates
 zeus-access-control = { path = "crates/zeus_access_control", version = "0.1.0" }
 zeus-common = { path = "crates/zeus_common", version = "0.1.0" }
 zeus-crypto = { path = "crates/zeus_crypto", version = "0.1.0" }
@@ -26,7 +30,6 @@ panic = "abort"
 codegen-units = 1
 lto = true
 
-# For more information about this profile see https://soroban.stellar.org/docs/basic-tutorials/logging#cargotoml-profile
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true
