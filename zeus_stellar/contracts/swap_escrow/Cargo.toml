@@ -1,12 +1,15 @@
 [package]
 name = "swap-escrow"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
-publish = false
 
 [lib]
-crate-type = ["lib", "cdylib"]
-doctest = false
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-soroban-sdk = { workspace = true }
+soroban-sdk = { version = "23.0.0" }
+zeus-interfaces = { path = "../../crates/zeus_interfaces" }
+zeus-access-control = { path = "../../crates/zeus_access_control" }
+
+[dev-dependencies]
+soroban-sdk = { version = "23.0.0", features = ["testutils"] }
