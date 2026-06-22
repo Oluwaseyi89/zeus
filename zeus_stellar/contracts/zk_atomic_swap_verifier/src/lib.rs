@@ -179,3 +179,6 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod test;
