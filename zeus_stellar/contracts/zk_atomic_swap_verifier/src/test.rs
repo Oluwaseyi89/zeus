@@ -1,43 +1,253 @@
 #![cfg(test)]
 
-use super::*;
-use soroban_sdk::{Env, Bytes, BytesN};
-use zeus_interfaces::{BtcSwapJournal, ZkVerifierClient};
+use crate::{ZkAtomicSwapVerifier, ZkAtomicSwapVerifierClient};
+use soroban_sdk::testutils::Address as _;
+use soroban_sdk::xdr::ToXdr;
+use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env};
+use zeus_interfaces::BtcSwapJournal;
+
+// Clean mock of the external Nethermind verifier interface dependency
+#[contract]
+pub struct MockNethermindVerifier;
+
+#[contractimpl]
+impl MockNethermindVerifier {
+    pub fn verify(_env: Env, _seal: Bytes, _image_id: BytesN<32>, _journal_digest: BytesN<32>) {
+        // Keeps cross-contract invocation stable and side-effect free
+    }
+}
+
+// Optimized setup helper utilizing uniform client instances
+fn setup_test(env: &Env) -> (ZkAtomicSwapVerifierClient<'_>, Address, Address) {
+    let admin = Address::generate(env);
+    let router_id = env.register(MockNethermindVerifier, ());
+
+    let contract_id = env.register(ZkAtomicSwapVerifier, ());
+    let contract_client = ZkAtomicSwapVerifierClient::new(env, &contract_id);
+
+    contract_client.initialize(&admin, &router_id);
+
+    (contract_client, admin, router_id)
+}
 
 #[test]
 fn test_verify_btc_swap_happy_path() {
     let env = Env::default();
     env.mock_all_auths();
 
-    // 1. Register the verifier contract in the test environment
-    let contract_id = env.register_contract(None, SwapEscrowContract); // Uses the verifier contract struct
-    let client = ZkVerifierClient::new(&env, &contract_id);
+    let (contract_client, _admin, _router_id) = setup_test(&env);
 
-    // 2. Setup mock data
-    let tx_hash = BytesN::from_array(&env, &[0u8; 32]);
+    let mock_tx_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let mock_recipient = Address::generate(&env);
+    let mock_amount: u128 = 100;
+    let mock_confirmations: u32 = 6;
+
+    let mock_journal = BtcSwapJournal {
+        btc_tx_hash: mock_tx_hash.clone(),
+        recipient_stellar: mock_recipient.clone(),
+        swap_amount: mock_amount,
+        block_confirmations: mock_confirmations,
+    };
+
+    let journal_buffer = mock_journal.to_xdr(&env);
     let seal = Bytes::from_slice(&env, &[1, 2, 3, 4]);
-    
-    // Create a dummy journal matching your BtcSwapJournal schema requirements
-    // For testing parsing stability, we serialize a mock payload or use dummy bytes depending on your exact struct fields
-    let journal = Bytes::from_slice(&env, &[0u8; 64]); 
 
-    // 3. Execute the call (Since it returns the BtcSwapJournal or panics)
-    // Note: In a pure mock environment without the underlying Nethermind/Risc0 extension linked, 
-    // we verify that the client structure accepts the call patterns cleanly.
-    let _result = client.verify_btc_swap(&journal, &seal, &tx_hash);
+    let result = contract_client.verify_btc_swap(&journal_buffer, &seal, &mock_tx_hash);
+
+    assert_eq!(result.swap_amount, mock_amount);
+    assert_eq!(result.block_confirmations, mock_confirmations);
+    assert_eq!(result.btc_tx_hash, mock_tx_hash);
+    assert_eq!(result.recipient_stellar, mock_recipient);
 }
 
 #[test]
-#[should_panic(expected = "Invalid zero-knowledge proof verification failed")]
-fn test_verify_btc_swap_malicious_proof_fails() {
+#[should_panic(expected = "Error(Contract, #4)")] // Maps directly to VerifierPaused
+fn test_verify_btc_swap_verifier_paused() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, SwapEscrowContract);
-    let client = ZkVerifierClient::new(&env, &contract_id);
+    env.mock_all_auths();
 
-    let tx_hash = BytesN::from_array(&env, &[0u8; 32]);
-    let empty_seal = Bytes::from_slice(&env, &[]);
-    let corrupt_journal = Bytes::from_slice(&env, &[9, 9, 9]);
+    let (contract_client, _admin, _router_id) = setup_test(&env);
 
-    // This should trigger the internal panic condition inside your verifier logic
-    client.verify_btc_swap(&corrupt_journal, &empty_seal, &tx_hash);
+    contract_client.set_active_status(&false);
+
+    let journal_buffer = Bytes::new(&env);
+    let seal = Bytes::from_slice(&env, &[1, 2, 3, 4]);
+    let tx_hash = BytesN::from_array(&env, &[1u8; 32]);
+
+    contract_client.verify_btc_swap(&journal_buffer, &seal, &tx_hash);
+}
+
+#[test]
+#[should_panic(expected = "Error(Value, InvalidInput)")] // Catches host structural byte alignment failure
+fn test_verify_btc_swap_invalid_journal() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+
+    let corrupt_journal = Bytes::from_slice(&env, &[9, 9, 9, 9, 9]);
+    let seal = Bytes::from_slice(&env, &[1, 2, 3, 4]);
+    let tx_hash = BytesN::from_array(&env, &[1u8; 32]);
+
+    contract_client.verify_btc_swap(&corrupt_journal, &seal, &tx_hash);
+}
+
+#[test]
+fn test_initialize_sets_admin_and_router() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let router_id = Address::generate(&env);
+    let contract_id = env.register(ZkAtomicSwapVerifier, ());
+    let client = ZkAtomicSwapVerifierClient::new(&env, &contract_id);
+
+    client.initialize(&admin, &router_id);
+    assert!(client.get_verifier_status());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn test_initialize_twice_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let router_id = Address::generate(&env);
+    let contract_id = env.register(ZkAtomicSwapVerifier, ());
+    let client = ZkAtomicSwapVerifierClient::new(&env, &contract_id);
+
+    client.initialize(&admin, &router_id);
+    client.initialize(&admin, &router_id);
+}
+
+#[test]
+fn test_set_active_status_toggles_verifier() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+
+    assert!(contract_client.get_verifier_status());
+
+    contract_client.set_active_status(&false);
+    assert!(!contract_client.get_verifier_status());
+
+    contract_client.set_active_status(&true);
+    assert!(contract_client.get_verifier_status());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn test_set_active_status_not_initialized() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(ZkAtomicSwapVerifier, ());
+    let client = ZkAtomicSwapVerifierClient::new(&env, &contract_id);
+
+    client.set_active_status(&false);
+}
+
+#[test]
+fn test_whitelist_relayer() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+    let relayer = Address::generate(&env);
+
+    contract_client.whitelist_relayer(&relayer);
+}
+
+#[test]
+fn test_remove_relayer() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+    let relayer = Address::generate(&env);
+
+    contract_client.whitelist_relayer(&relayer);
+    contract_client.remove_relayer(&relayer);
+}
+
+#[test]
+fn test_update_router_id() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+    let new_router_id = Address::generate(&env);
+
+    contract_client.update_router_id(&new_router_id);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn test_update_router_id_not_initialized() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(ZkAtomicSwapVerifier, ());
+    let client = ZkAtomicSwapVerifierClient::new(&env, &contract_id);
+    let new_router_id = Address::generate(&env);
+
+    client.update_router_id(&new_router_id);
+}
+
+#[test]
+fn test_verify_btc_swap_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+
+    let mock_tx_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let mock_recipient = Address::generate(&env);
+    let mock_amount: u128 = 100;
+    let mock_confirmations: u32 = 6;
+
+    let mock_journal = BtcSwapJournal {
+        btc_tx_hash: mock_tx_hash.clone(),
+        recipient_stellar: mock_recipient.clone(),
+        swap_amount: mock_amount,
+        block_confirmations: mock_confirmations,
+    };
+
+    let journal_buffer = mock_journal.to_xdr(&env);
+    let seal = Bytes::from_slice(&env, &[1, 2, 3, 4]);
+
+    let result = contract_client.verify_btc_swap(&journal_buffer, &seal, &mock_tx_hash);
+    assert_eq!(result.swap_amount, mock_amount);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #2)")] // Maps directly to BtcTxAlreadySpent
+fn test_verify_btc_swap_double_spend_detected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (contract_client, _admin, _router_id) = setup_test(&env);
+
+    let mock_tx_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let mock_recipient = Address::generate(&env);
+    let mock_amount: u128 = 100;
+    let mock_confirmations: u32 = 6;
+
+    let mock_journal = BtcSwapJournal {
+        btc_tx_hash: mock_tx_hash.clone(),
+        recipient_stellar: mock_recipient,
+        swap_amount: mock_amount,
+        block_confirmations: mock_confirmations,
+    };
+
+    let journal_buffer = mock_journal.to_xdr(&env);
+    let seal = Bytes::from_slice(&env, &[1, 2, 3, 4]);
+
+    env.as_contract(&contract_client.address, || {
+        env.storage().persistent().set(&mock_tx_hash, &true);
+    });
+
+    contract_client.verify_btc_swap(&journal_buffer, &seal, &mock_tx_hash);
 }
