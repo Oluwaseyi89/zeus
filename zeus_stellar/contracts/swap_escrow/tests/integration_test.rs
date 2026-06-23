@@ -1,13 +1,11 @@
 #![cfg(test)]
 
-use soroban_sdk::{
-    testutils::Address as _, token, xdr::ToXdr, Address, Bytes, BytesN, Env,
-};
+use soroban_sdk::{testutils::Address as _, token, xdr::ToXdr, Address, Bytes, BytesN, Env};
 
 // Import actual contract implementations from your workspace crates
 use swap_escrow::{SwapEscrowContract, SwapEscrowContractClient};
-use zk_atomic_swap_verifier::{ZkAtomicSwapVerifier, ZkAtomicSwapVerifierClient};
 use zeus_interfaces::BtcSwapJournal;
+use zk_atomic_swap_verifier::{ZkAtomicSwapVerifier, ZkAtomicSwapVerifierClient};
 
 // --- DUMMY ROUTER FOR NETHERMIND RISC0 VERIFIER INTERFACE ---
 #[soroban_sdk::contract]
@@ -15,22 +13,17 @@ pub struct MockNethermindRouter;
 
 #[soroban_sdk::contractimpl]
 impl MockNethermindRouter {
-    pub fn verify(
-        _env: Env,
-        _seal: Bytes,
-        _image_id: BytesN<32>,
-        _journal_digest: BytesN<32>,
-    ) {
+    pub fn verify(_env: Env, _seal: Bytes, _image_id: BytesN<32>, _journal_digest: BytesN<32>) {
         // Yield success cleanly to simulate valid zero-knowledge circuit completion
     }
 }
 
 // --- END-TO-END P2P FIXTURE ---
 struct IntegrationFixture<'a> {
-    env: Env,
+    _env: Env,
     escrow_client: SwapEscrowContractClient<'a>,
     verifier_client: ZkAtomicSwapVerifierClient<'a>,
-    admin: Address,
+    _admin: Address,
     recipient: Address,
     token_id: Address,
 }
@@ -58,10 +51,10 @@ fn setup_integration_environment(env: &Env, swap_amount: i128) -> IntegrationFix
     escrow_client.initialize(&admin, &verifier_addr, &token_id, &swap_amount);
 
     IntegrationFixture {
-        env: env.clone(),
+        _env: env.clone(),
         escrow_client,
         verifier_client,
-        admin,
+        _admin: admin,
         recipient,
         token_id,
     }
@@ -100,7 +93,7 @@ fn test_e2e_p2p_zk_atomic_swap_settlement() {
     // Execute End-to-End Claim Execution over cross-contract environment channel bounds
     fixture.escrow_client.claim_swap(
         &fixture.recipient,
-        &mock_btc_tx_hash, // Used as the image_id/tx_hash mismatch parameter alignment
+        &mock_btc_tx_hash,
         &mock_seal,
         &serialized_journal,
     );
@@ -108,9 +101,12 @@ fn test_e2e_p2p_zk_atomic_swap_settlement() {
     // --- STRUCTURAL ASSERTIONS ---
 
     let standard_token = token::Client::new(&env, &fixture.token_id);
-    
+
     // Verify liquidity transferred peer-to-peer flawlessly directly to recipient
-    assert_eq!(standard_token.balance(&fixture.recipient), target_swap_amount);
+    assert_eq!(
+        standard_token.balance(&fixture.recipient),
+        target_swap_amount
+    );
     assert_eq!(standard_token.balance(&fixture.escrow_client.address), 0);
 
     // Verify the verifier tagged the transaction nullifier to prevent double-spending replay vectors

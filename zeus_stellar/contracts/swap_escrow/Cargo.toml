@@ -13,3 +13,4 @@ zeus-access-control = { path = "../../crates/zeus_access_control" }
 
 [dev-dependencies]
 soroban-sdk = { version = "23.0.0", features = ["testutils"] }
+zk-atomic-swap-verifier = { path = "../zk_atomic_swap_verifier" }
