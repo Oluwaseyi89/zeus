@@ -87,3 +87,6 @@ impl SwapEscrowContract {
         token_client.transfer(&env.current_contract_address(), &admin, &amount);
     }
 }
+
+#[cfg(test)]
+mod test;

@@ -5,6 +5,9 @@ use soroban_sdk::{
 };
 use zeus_interfaces::{BtcSwapJournal, IZKAtomicSwapVerifier};
 
+const MIN_TTL: u32 = 17_280;
+const BUMP_TTL: u32 = 518_400;
+
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -28,7 +31,6 @@ pub enum StorageKey {
     Relayer(Address),
 }
 
-// Fixed: Declared locally using Soroban v23 macro syntax to bypass deprecation
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ZkBtcVerifiedEvent {
@@ -70,6 +72,7 @@ impl ZkAtomicSwapVerifier {
         env.storage()
             .instance()
             .set(&StorageKey::Initialized, &true);
+        env.storage().instance().extend_ttl(MIN_TTL, BUMP_TTL);
     }
 
     pub fn update_router_id(env: Env, new_router_id: Address) {
@@ -83,6 +86,7 @@ impl ZkAtomicSwapVerifier {
         env.storage()
             .instance()
             .set(&StorageKey::RouterId, &new_router_id);
+        env.storage().instance().extend_ttl(MIN_TTL, BUMP_TTL);
     }
 
     pub fn set_active_status(env: Env, status: bool) {
@@ -94,6 +98,7 @@ impl ZkAtomicSwapVerifier {
 
         admin.require_auth();
         env.storage().instance().set(&StorageKey::Active, &status);
+        env.storage().instance().extend_ttl(MIN_TTL, BUMP_TTL);
     }
 }
 
@@ -129,8 +134,10 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
         }
 
         env.storage().persistent().set(&journal.btc_tx_hash, &true);
+        env.storage()
+            .persistent()
+            .extend_ttl(&journal.btc_tx_hash, MIN_TTL, BUMP_TTL);
 
-        // Fixed: Use type-safe structured event publishing method
         ZkBtcVerifiedEvent {
             topic: Symbol::new(&env, "zk_btc_verified"),
             btc_tx_hash: journal.btc_tx_hash.clone(),
@@ -157,6 +164,7 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
         env.storage()
             .instance()
             .set(&StorageKey::Relayer(relayer), &true);
+        env.storage().instance().extend_ttl(MIN_TTL, BUMP_TTL);
     }
 
     fn remove_relayer(env: Env, relayer: Address) {
@@ -179,3 +187,6 @@ impl IZKAtomicSwapVerifier for ZkAtomicSwapVerifier {
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod test;
