@@ -28,6 +28,10 @@ impl MockZkVerifier {
         // Unpack structural journal data seamlessly during live simulation paths
         BtcSwapJournal::from_xdr(&env, &journal_bytes).unwrap()
     }
+
+    pub fn is_tx_spent(_env: Env, _btc_tx_hash: BytesN<32>) -> bool {
+        false
+    }
 }
 
 // --- OPTIMIZED TEST ENVIRONMENT CONFIGURATOR ---

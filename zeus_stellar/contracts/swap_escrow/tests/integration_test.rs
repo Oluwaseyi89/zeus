@@ -99,7 +99,6 @@ fn test_e2e_p2p_zk_atomic_swap_settlement() {
     );
 
     // --- STRUCTURAL ASSERTIONS ---
-
     let standard_token = token::Client::new(&env, &fixture.token_id);
 
     // Verify liquidity transferred peer-to-peer flawlessly directly to recipient
@@ -111,4 +110,80 @@ fn test_e2e_p2p_zk_atomic_swap_settlement() {
 
     // Verify the verifier tagged the transaction nullifier to prevent double-spending replay vectors
     assert!(fixture.verifier_client.is_tx_spent(&mock_btc_tx_hash));
+}
+
+#[test]
+#[should_panic(expected = "Transaction has already been spent")]
+fn test_integration_replay_attack_prevention() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let target_swap_amount: i128 = 5000;
+    let fixture = setup_integration_environment(&env, target_swap_amount);
+
+    // Seed liquidity pool vault with enough funds to cover multiple potential transfers
+    let token_initializer = token::StellarAssetClient::new(&env, &fixture.token_id);
+    token_initializer.mint(&fixture.escrow_client.address, &(target_swap_amount * 2));
+
+    let mock_btc_tx_hash = BytesN::from_array(&env, &[9u8; 32]);
+    let journal_payload = BtcSwapJournal {
+        btc_tx_hash: mock_btc_tx_hash.clone(),
+        recipient_stellar: fixture.recipient.clone(),
+        swap_amount: target_swap_amount as u128,
+        block_confirmations: 6,
+    };
+
+    let serialized_journal = journal_payload.to_xdr(&env);
+    let mock_seal = Bytes::from_slice(&env, &[0xAA, 0xBB, 0xCC]);
+
+    // Initial successful claim
+    fixture.escrow_client.claim_swap(
+        &fixture.recipient,
+        &mock_btc_tx_hash,
+        &mock_seal,
+        &serialized_journal,
+    );
+
+    // Re-execution attempt with identical proofs must trap and panic
+    fixture.escrow_client.claim_swap(
+        &fixture.recipient,
+        &mock_btc_tx_hash,
+        &mock_seal,
+        &serialized_journal,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Recipient address mismatch with verified journal")]
+fn test_integration_recipient_mismatch_safeguard() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let target_swap_amount: i128 = 5000;
+    let fixture = setup_integration_environment(&env, target_swap_amount);
+
+    let token_initializer = token::StellarAssetClient::new(&env, &fixture.token_id);
+    token_initializer.mint(&fixture.escrow_client.address, &target_swap_amount);
+
+    let mock_btc_tx_hash = BytesN::from_array(&env, &[9u8; 32]);
+    let malicious_attacker = Address::generate(&env);
+
+    // Construct journal pointing securely to the true recipient
+    let journal_payload = BtcSwapJournal {
+        btc_tx_hash: mock_btc_tx_hash.clone(),
+        recipient_stellar: fixture.recipient.clone(),
+        swap_amount: target_swap_amount as u128,
+        block_confirmations: 6,
+    };
+
+    let serialized_journal = journal_payload.to_xdr(&env);
+    let mock_seal = Bytes::from_slice(&env, &[0xAA, 0xBB, 0xCC]);
+
+    // Attack execution vector: Attempting to call swap with an unauthenticated malicious address parameter
+    fixture.escrow_client.claim_swap(
+        &malicious_attacker,
+        &mock_btc_tx_hash,
+        &mock_seal,
+        &serialized_journal,
+    );
 }
