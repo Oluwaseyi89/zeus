@@ -1605,6 +1605,7 @@ dependencies = [
  "soroban-sdk",
  "zeus-access-control",
  "zeus-interfaces",
+ "zk-atomic-swap-verifier",
 ]
 
 [[package]]
