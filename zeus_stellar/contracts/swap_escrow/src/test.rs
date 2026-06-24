@@ -3,7 +3,7 @@
 use crate::{DataKey, SwapEscrowContract, SwapEscrowContractClient};
 use soroban_sdk::{
     contract, contractimpl,
-    testutils::Address as _,
+    testutils::{Address as _, Ledger as _},
     token,
     xdr::{FromXdr, ToXdr},
     Address, Bytes, BytesN, Env,
@@ -37,21 +37,34 @@ impl MockZkVerifier {
 // --- OPTIMIZED TEST ENVIRONMENT CONFIGURATOR ---
 
 struct TestFixture<'a> {
-    _env: Env,
+    env: Env,
     client: SwapEscrowContractClient<'a>,
     admin: Address,
+    depositor: Address,
+    treasury: Address,
     verifier_id: Address,
     token_id: Address,
     _token_admin: Address,
+    timeout_timestamp: u64,
+    fee_bps: u32,
 }
 
 fn setup_test_environment(env: &Env, swap_amount: i128) -> TestFixture<'_> {
     let admin = Address::generate(env);
+    let depositor = Address::generate(env);
+    let treasury = Address::generate(env);
     let token_admin = Address::generate(env);
+
+    // Default configuration metrics for lifecycle tests
+    let timeout_timestamp: u64 = 10000;
+    let fee_bps: u32 = 50; // 0.5% protocol fee cut
+
+    // Set initial ledger time comfortably below timeout threshold
+    env.ledger().set_timestamp(5000);
 
     // Register mock token contract framework (v2 returns a StellarAssetContract instance)
     let sac_instance = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_id = sac_instance.address(); // Corrected accessor for the native Address type
+    let token_id = sac_instance.address();
 
     // Register local implementation mock for cross-contract validation
     let verifier_id = env.register(MockZkVerifier, ());
@@ -60,15 +73,28 @@ fn setup_test_environment(env: &Env, swap_amount: i128) -> TestFixture<'_> {
     let contract_id = env.register(SwapEscrowContract, ());
     let client = SwapEscrowContractClient::new(env, &contract_id);
 
-    client.initialize(&admin, &verifier_id, &token_id, &swap_amount);
+    client.initialize(
+        &admin,
+        &verifier_id,
+        &token_id,
+        &depositor,
+        &treasury,
+        &swap_amount,
+        &timeout_timestamp,
+        &fee_bps,
+    );
 
     TestFixture {
-        _env: env.clone(),
+        env: env.clone(),
         client,
         admin,
+        depositor,
+        treasury,
         verifier_id,
         token_id,
         _token_admin: token_admin,
+        timeout_timestamp,
+        fee_bps,
     }
 }
 
@@ -87,11 +113,23 @@ fn test_initialize_sets_correct_storage_values() {
             .get(&DataKey::IsInitialized)
             .unwrap();
         let registered_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        let depositor: Address = env.storage().instance().get(&DataKey::Depositor).unwrap();
+        let treasury: Address = env.storage().instance().get(&DataKey::Treasury).unwrap();
         let swap_amt: i128 = env.storage().instance().get(&DataKey::SwapAmount).unwrap();
+        let timeout: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TimeoutTimestamp)
+            .unwrap();
+        let fee: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap();
 
         assert!(is_init);
         assert_eq!(registered_admin, fixture.admin);
+        assert_eq!(depositor, fixture.depositor);
+        assert_eq!(treasury, fixture.treasury);
         assert_eq!(swap_amt, 500);
+        assert_eq!(timeout, fixture.timeout_timestamp);
+        assert_eq!(fee, fixture.fee_bps);
     });
 }
 
@@ -101,12 +139,15 @@ fn test_initialize_twice_panics() {
     let env = Env::default();
     let fixture = setup_test_environment(&env, 500);
 
-    // Re-triggering initialization should trip the structural constraint check
     fixture.client.initialize(
         &fixture.admin,
         &fixture.verifier_id,
         &fixture.token_id,
+        &fixture.depositor,
+        &fixture.treasury,
         &100,
+        &fixture.timeout_timestamp,
+        &fixture.fee_bps,
     );
 }
 
@@ -118,30 +159,28 @@ fn test_deposit_liquidity_transfers_funds_successfully() {
     let fixture = setup_test_environment(&env, 200);
     let liquidity_provider = Address::generate(&env);
 
-    // Setup initial balances inside mock token contract
     let token_client = token::StellarAssetClient::new(&env, &fixture.token_id);
     token_client.mint(&liquidity_provider, &1000);
 
     fixture.client.deposit_liquidity(&liquidity_provider, &400);
 
-    // Check balance distributions post-execution
     let standard_token_client = token::Client::new(&env, &fixture.token_id);
     assert_eq!(standard_token_client.balance(&liquidity_provider), 600);
     assert_eq!(standard_token_client.balance(&fixture.client.address), 400);
 }
 
 #[test]
-fn test_claim_swap_happy_path() {
+fn test_claim_swap_happy_path_with_fee_extraction() {
     let env = Env::default();
     env.mock_all_auths();
 
-    let target_swap_amount: i128 = 350;
+    let target_swap_amount: i128 = 1000; // Chosen to make percentage math clear
     let fixture = setup_test_environment(&env, target_swap_amount);
     let recipient = Address::generate(&env);
 
-    // Seed contract with liquid assets to prevent overdraft scenarios during claims
+    // Seed contract with liquid assets
     let token_client = token::StellarAssetClient::new(&env, &fixture.token_id);
-    token_client.mint(&fixture.client.address, &1000);
+    token_client.mint(&fixture.client.address, &target_swap_amount);
 
     // Construct verifiable XDR journal payload structure
     let mock_tx_hash = BytesN::from_array(&env, &[7u8; 32]);
@@ -160,16 +199,66 @@ fn test_claim_swap_happy_path() {
         .client
         .claim_swap(&recipient, &mock_tx_hash, &dummy_seal, &journal_buffer);
 
-    // Assert funds are routed accurately
     let standard_token_client = token::Client::new(&env, &fixture.token_id);
+
+    // 50 Bps of 1000 = 5 tokens protocol fee
+    let expected_fee = (target_swap_amount * fixture.fee_bps as i128) / 10000;
+    let expected_recipient_payout = target_swap_amount - expected_fee;
+
     assert_eq!(
         standard_token_client.balance(&recipient),
-        target_swap_amount
+        expected_recipient_payout
     );
     assert_eq!(
-        standard_token_client.balance(&fixture.client.address),
-        1000 - target_swap_amount
+        standard_token_client.balance(&fixture.treasury),
+        expected_fee
     );
+    assert_eq!(standard_token_client.balance(&fixture.client.address), 0);
+}
+
+#[test]
+#[should_panic(expected = "Lock duration active: Timeout threshold has not been reached")]
+fn test_refund_swap_fails_before_timeout() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let fixture = setup_test_environment(&env, 500);
+
+    // Explicitly confirm current ledger timestamp is securely underneath timeout constraint
+    assert!(fixture.env.ledger().timestamp() < fixture.timeout_timestamp);
+
+    // Reclaim attempt must immediately trap and halt execution
+    fixture.client.refund_swap();
+}
+
+#[test]
+fn test_refund_swap_succeeds_after_timeout_expiration() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let target_swap_amount: i128 = 500;
+    let fixture = setup_test_environment(&env, target_swap_amount);
+
+    let token_client = token::StellarAssetClient::new(&env, &fixture.token_id);
+    token_client.mint(&fixture.client.address, &target_swap_amount);
+
+    // Fast-forward simulated on-chain environment past the expiration line
+    fixture
+        .env
+        .ledger()
+        .set_timestamp(fixture.timeout_timestamp + 1);
+
+    // Execute reclamation routine
+    fixture.client.refund_swap();
+
+    let standard_token_client = token::Client::new(&env, &fixture.token_id);
+
+    // Original depositor gets 100% of the funds back
+    assert_eq!(
+        standard_token_client.balance(&fixture.depositor),
+        target_swap_amount
+    );
+    assert_eq!(standard_token_client.balance(&fixture.client.address), 0);
 }
 
 #[test]
@@ -182,7 +271,6 @@ fn test_emergency_withdraw_by_admin() {
     let token_client = token::StellarAssetClient::new(&env, &fixture.token_id);
     token_client.mint(&fixture.client.address, &500);
 
-    // Extract funds back via admin role privilege bounds
     fixture.client.emergency_withdraw(&300);
 
     let standard_token_client = token::Client::new(&env, &fixture.token_id);
