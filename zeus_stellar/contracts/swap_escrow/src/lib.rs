@@ -19,14 +19,32 @@ pub enum DataKey {
     FeeBps,
 }
 
+// Define an explicit contract interface to guarantee public metadata visibility
+pub trait SwapEscrowTrait {
+    fn initialize(
+        env: Env,
+        admin: Address,
+        verifier: Address,
+        token: Address,
+        depositor: Address,
+        treasury: Address,
+        swap_amount: i128,
+        timeout_timestamp: u64,
+        fee_bps: u32,
+    );
+    fn deposit_liquidity(env: Env, provider: Address, amount: i128);
+    fn claim_swap(env: Env, recipient: Address, tx_hash: BytesN<32>, seal: Bytes, journal: Bytes);
+    fn refund_swap(env: Env);
+    fn emergency_withdraw(env: Env, amount: i128);
+}
+
 #[contract]
 pub struct SwapEscrowContract;
 
 #[contractimpl]
-impl SwapEscrowContract {
+impl SwapEscrowTrait for SwapEscrowContract {
     /// Initializes the escrow vault with administrative controls, safety timeouts, and monetization parameters.
-    #[allow(clippy::too_many_arguments)] // <-- ADD THIS LINE TO SILENCE THE CLIPPY WARNING
-    pub fn initialize(
+    fn initialize(
         env: Env,
         admin: Address,
         verifier: Address,
@@ -63,24 +81,18 @@ impl SwapEscrowContract {
     }
 
     /// Allows the admin or liquidity providers to fund the contract vault with native assets.
-    pub fn deposit_liquidity(env: Env, provider: Address, amount: i128) {
+    fn deposit_liquidity(env: Env, provider: Address, amount: i128) {
         provider.require_auth();
 
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
 
-        // Transfer funds from the provider into this contract instance
+        // FIX: Removed needless borrow operator '&' from the current contract address
         token_client.transfer(&provider, env.current_contract_address(), &amount);
     }
 
     /// Claims the escrowed funds by verifying a Risc0 proof, splitting the configured protocol fee to the treasury.
-    pub fn claim_swap(
-        env: Env,
-        recipient: Address,
-        tx_hash: BytesN<32>,
-        seal: Bytes,
-        journal: Bytes,
-    ) {
+    fn claim_swap(env: Env, recipient: Address, tx_hash: BytesN<32>, seal: Bytes, journal: Bytes) {
         recipient.require_auth();
 
         let verifier_addr: Address = env.storage().instance().get(&DataKey::Verifier).unwrap();
@@ -128,7 +140,7 @@ impl SwapEscrowContract {
     }
 
     /// Permits the original depositor to reclaim their locked assets autonomously if the timeout threshold passes.
-    pub fn refund_swap(env: Env) {
+    fn refund_swap(env: Env) {
         let depositor: Address = env.storage().instance().get(&DataKey::Depositor).unwrap();
         let timeout_timestamp: u64 = env
             .storage()
@@ -150,7 +162,7 @@ impl SwapEscrowContract {
     }
 
     /// Allows emergency withdrawal of locked vault liquidity by the administrator.
-    pub fn emergency_withdraw(env: Env, amount: i128) {
+    fn emergency_withdraw(env: Env, amount: i128) {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 

@@ -1,11 +1,11 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Val, Vec};
+#![allow(clippy::too_many_arguments)]
+
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
 
 // Dynamic client import for your SwapEscrowContract's initialization interface
 mod escrow_instance {
-    soroban_sdk::contractimport!(
-        file = "../../target/wasm32v1-none/release/swap_escrow.wasm"
-    );
+    soroban_sdk::contractimport!(file = "../../target/wasm32v1-none/release/swap_escrow.wasm");
 }
 
 #[derive(Clone)]
@@ -26,13 +26,15 @@ impl EscrowFactoryContract {
             panic!("Factory already initialized");
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::EscrowWasmHash, &wasm_hash);
+        env.storage()
+            .instance()
+            .set(&DataKey::EscrowWasmHash, &wasm_hash);
     }
 
     /// Dynamically deploys and initializes a new isolated instance of the SwapEscrowContract.
     pub fn create_escrow(
         env: Env,
-        salt: BytesN<32>, // Unique salt per swap (e.g., hash of the trade details)
+        salt: BytesN<32>,
         verifier: Address,
         token: Address,
         depositor: Address,
@@ -41,19 +43,23 @@ impl EscrowFactoryContract {
         timeout_timestamp: u64,
         fee_bps: u32,
     ) -> Address {
-        let wasm_hash: BytesN<32> = env.storage().instance().get(&DataKey::EscrowWasmHash).unwrap();
+        let wasm_hash: BytesN<32> = env
+            .storage()
+            .instance()
+            .get(&DataKey::EscrowWasmHash)
+            .unwrap();
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
 
-        // 1. Deploy the contract instance using the current contract's deployment context
+        // 1. Deploy the contract instance passing an empty tuple () for lack of native constructor
         let deployed_address = env
             .deployer()
             .with_current_contract(salt)
-            .deploy(wasm_hash);
+            .deploy_v2(wasm_hash, ());
 
         // 2. Instantiate a dynamic client for the freshly minted escrow address
         let escrow_client = escrow_instance::Client::new(&env, &deployed_address);
 
-        // 3. Atomically pass the configuration initialization down to the clone instance
+        // 3. Atomically pass configuration parameters via the exact macro-generated structural call
         escrow_client.initialize(
             &admin,
             &verifier,
@@ -65,7 +71,6 @@ impl EscrowFactoryContract {
             &fee_bps,
         );
 
-        // Return the address so the backend/frontend knows where to route payments
         deployed_address
     }
 
@@ -74,6 +79,8 @@ impl EscrowFactoryContract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
-        env.storage().instance().set(&DataKey::EscrowWasmHash, &new_wasm_hash);
+        env.storage()
+            .instance()
+            .set(&DataKey::EscrowWasmHash, &new_wasm_hash);
     }
 }
