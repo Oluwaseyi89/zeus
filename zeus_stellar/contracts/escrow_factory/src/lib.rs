@@ -84,3 +84,6 @@ impl EscrowFactoryContract {
             .set(&DataKey::EscrowWasmHash, &new_wasm_hash);
     }
 }
+
+#[cfg(test)]
+mod test;
