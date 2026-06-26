@@ -1,6 +1,8 @@
 #![no_std]
 #![allow(clippy::too_many_arguments)]
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Bytes, BytesN, Env};
+use soroban_sdk::{
+    contract, contractevent, contractimpl, contracttype, token, Address, Bytes, BytesN, Env,
+};
 
 // Import client components and types generated from your interfaces crate
 use zeus_interfaces::{BtcSwapJournal, ZkVerifierClient};
@@ -17,6 +19,46 @@ pub enum DataKey {
     TimeoutTimestamp,
     Treasury,
     FeeBps,
+}
+
+// --- REMOVED #[contracttype] COLLISIONS; MANAGED NATIVELY BY #[contractevent] ---
+
+#[contractevent(topics = ["swap", "initialized"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SwapInitializedEvent {
+    pub admin: Address,
+    pub depositor: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["swap", "liquidity_added"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LiquidityDepositedEvent {
+    pub provider: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["swap", "claimed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SwapClaimedEvent {
+    pub recipient: Address,
+    pub btc_tx_hash: BytesN<32>,
+    pub net_amount: i128,
+    pub fee_amount: i128,
+}
+
+#[contractevent(topics = ["swap", "refunded"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SwapRefundedEvent {
+    pub depositor: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["swap", "emergency_withdrawn"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EmergencyWithdrawalEvent {
+    pub admin: Address,
+    pub amount: i128,
 }
 
 // Define an explicit contract interface to guarantee public metadata visibility
@@ -78,6 +120,13 @@ impl SwapEscrowTrait for SwapEscrowContract {
             .set(&DataKey::TimeoutTimestamp, &timeout_timestamp);
         env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
         env.storage().instance().set(&DataKey::IsInitialized, &true);
+
+        SwapInitializedEvent {
+            admin: admin.clone(),
+            depositor: depositor.clone(),
+            amount: swap_amount,
+        }
+        .publish(&env);
     }
 
     /// Allows the admin or liquidity providers to fund the contract vault with native assets.
@@ -87,8 +136,13 @@ impl SwapEscrowTrait for SwapEscrowContract {
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
 
-        // FIX: Removed needless borrow operator '&' from the current contract address
         token_client.transfer(&provider, env.current_contract_address(), &amount);
+
+        LiquidityDepositedEvent {
+            provider: provider.clone(),
+            amount,
+        }
+        .publish(&env);
     }
 
     /// Claims the escrowed funds by verifying a Risc0 proof, splitting the configured protocol fee to the treasury.
@@ -137,6 +191,14 @@ impl SwapEscrowTrait for SwapEscrowContract {
             &recipient,
             &recipient_amount,
         );
+
+        SwapClaimedEvent {
+            recipient: recipient.clone(),
+            btc_tx_hash: tx_hash,
+            net_amount: recipient_amount,
+            fee_amount,
+        }
+        .publish(&env);
     }
 
     /// Permits the original depositor to reclaim their locked assets autonomously if the timeout threshold passes.
@@ -159,6 +221,12 @@ impl SwapEscrowTrait for SwapEscrowContract {
 
         // Empty entire remaining contract liquidity back to the initial source depositor account
         token_client.transfer(&env.current_contract_address(), &depositor, &swap_amount);
+
+        SwapRefundedEvent {
+            depositor: depositor.clone(),
+            amount: swap_amount,
+        }
+        .publish(&env);
     }
 
     /// Allows emergency withdrawal of locked vault liquidity by the administrator.
@@ -170,6 +238,12 @@ impl SwapEscrowTrait for SwapEscrowContract {
         let token_client = token::Client::new(&env, &token_addr);
 
         token_client.transfer(&env.current_contract_address(), &admin, &amount);
+
+        EmergencyWithdrawalEvent {
+            admin: admin.clone(),
+            amount,
+        }
+        .publish(&env);
     }
 }
 

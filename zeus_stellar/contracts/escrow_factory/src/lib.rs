@@ -1,7 +1,10 @@
 #![no_std]
 #![allow(clippy::too_many_arguments)]
+#![allow(deprecated)]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol,
+};
 
 // Dynamic client import for your SwapEscrowContract's initialization interface
 mod escrow_instance {
@@ -29,6 +32,13 @@ impl EscrowFactoryContract {
         env.storage()
             .instance()
             .set(&DataKey::EscrowWasmHash, &wasm_hash);
+
+        // Emit initialization event
+        // Topics: (Symbol("factory"), Symbol("init")) | Data: (admin, wasm_hash)
+        env.events().publish(
+            (Symbol::new(&env, "factory"), symbol_short!("init")),
+            (&admin, &wasm_hash),
+        );
     }
 
     /// Dynamically deploys and initializes a new isolated instance of the SwapEscrowContract.
@@ -71,6 +81,13 @@ impl EscrowFactoryContract {
             &fee_bps,
         );
 
+        // Emit creation event
+        // Topics: (Symbol("factory"), Symbol("created")) | Data: (escrow_address, depositor, swap_amount)
+        env.events().publish(
+            (Symbol::new(&env, "factory"), Symbol::new(&env, "created")),
+            (&deployed_address, &depositor, &swap_amount),
+        );
+
         deployed_address
     }
 
@@ -79,9 +96,22 @@ impl EscrowFactoryContract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
+        let old_wasm_hash: BytesN<32> = env
+            .storage()
+            .instance()
+            .get(&DataKey::EscrowWasmHash)
+            .unwrap();
+
         env.storage()
             .instance()
             .set(&DataKey::EscrowWasmHash, &new_wasm_hash);
+
+        // Emit update event
+        // Topics: (Symbol("factory"), Symbol("upgraded")) | Data: (old_wasm_hash, new_wasm_hash)
+        env.events().publish(
+            (Symbol::new(&env, "factory"), Symbol::new(&env, "upgraded")),
+            (old_wasm_hash, new_wasm_hash),
+        );
     }
 }
 
