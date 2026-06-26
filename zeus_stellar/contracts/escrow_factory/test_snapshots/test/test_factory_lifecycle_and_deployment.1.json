@@ -332,5 +332,36 @@
       ]
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "factory"
+              },
+              {
+                "symbol": "upgraded"
+              }
+            ],
+            "data": {
+              "vec": [
+                {
+                  "bytes": "c4b8c7c88a7f153e74a81b2489448da0eceabe051e7af1630c5b1cd5cdf03a2c"
+                },
+                {
+                  "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }
