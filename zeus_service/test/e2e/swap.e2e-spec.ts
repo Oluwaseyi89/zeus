@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SwapModule } from '../../src/modules/swap/swap.module';
+import { SwapOrder } from '../../src/modules/swap/models/swap-order.model';
 
 describe('Swap e2e (dev)', () => {
   let app: INestApplication;
@@ -14,7 +15,7 @@ describe('Swap e2e (dev)', () => {
           type: 'sqlite',
           database: ':memory:',
           dropSchema: true,
-          entities: [__dirname + '/../../src/**/*.model.{ts,js}'],
+          entities: [SwapOrder],
           synchronize: true,
           logging: false,
         }),

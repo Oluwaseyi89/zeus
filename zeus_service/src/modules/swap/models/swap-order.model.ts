@@ -14,6 +14,11 @@ export enum SwapStatus {
   Expired = 'expired',
 }
 
+export enum BlockchainType {
+  Starknet = 'starknet',
+  Stellar = 'stellar',
+}
+
 @Entity({ name: 'swaps' })
 export class SwapOrder {
   @PrimaryGeneratedColumn('uuid')
@@ -51,6 +56,19 @@ export class SwapOrder {
 
   @Column({ nullable: true })
   secret?: string;
+
+  @Column({
+    type: 'enum',
+    enum: BlockchainType,
+    default: BlockchainType.Starknet,
+  })
+  blockchain: BlockchainType;
+
+  @Column({ nullable: true })
+  stellarEscrowAddress?: string;
+
+  @Column({ nullable: true })
+  stellarTxHash?: string;
 
   @CreateDateColumn()
   createdAt: Date;

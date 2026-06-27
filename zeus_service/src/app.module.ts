@@ -17,6 +17,8 @@ import { QueueModule } from './queue/queue.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { ApiModule } from './modules/api/api.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { StellarModule } from './modules/stellar/stellar.module';
+
 
 @Module({
   imports: [
@@ -42,6 +44,7 @@ import { AuthModule } from './modules/auth/auth.module';
     ApiModule,
     SwapModule,
     RelayerModule,
+    StellarModule,
   ],
   controllers: [AppController],
   providers: [AppService],
