@@ -4,6 +4,7 @@ import { SwapOrder } from './models/swap-order.model';
 import { SwapService } from './swap.service';
 import { SwapController } from './swap.controller';
 import { StarknetModule } from '../starknet/starknet.module';
+import { StellarModule } from '../stellar/stellar.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
 
@@ -11,6 +12,7 @@ import { NotificationModule } from '../notification/notification.module';
   imports: [
     TypeOrmModule.forFeature([SwapOrder]),
     StarknetModule,
+    StellarModule,
     AuthModule,
     NotificationModule,
   ],
