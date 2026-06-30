@@ -1,7 +1,9 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ZkService } from './zk.service';
+import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 
 @Controller('zk')
+@UseGuards(JwtAuthGuard)
 export class ZkController {
   constructor(private readonly zk: ZkService) {}
 

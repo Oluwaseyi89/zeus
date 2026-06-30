@@ -1,4 +1,13 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, Get, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
+  Get,
+  Query,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 class LoginDto {
@@ -44,7 +53,7 @@ export class AuthController {
     const blockchain = body.blockchain || 'stellar';
     const nonce = this.auth.generateNonceForAddress(address, blockchain);
 
-    return { 
+    return {
       nonce,
       address,
       blockchain,
@@ -82,9 +91,9 @@ export class AuthController {
         blockchain: result.blockchain,
       };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.message || 'Authentication failed' 
+      return {
+        success: false,
+        error: error.message || 'Authentication failed',
       };
     }
   }
@@ -104,7 +113,7 @@ export class AuthController {
       return { valid: false };
     }
 
-    return { 
+    return {
       valid: true,
       userId: decoded.sub,
       walletAddress: decoded.walletAddress,
@@ -119,14 +128,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async getNonce(
     @Query('address') address: string,
-    @Query('blockchain') blockchain: 'stellar' | 'bitcoin' | 'starknet' = 'stellar',
+    @Query('blockchain')
+    blockchain: 'stellar' | 'bitcoin' | 'starknet' = 'stellar',
   ) {
     if (!address) {
       return { error: 'address query parameter required' };
     }
 
     const normalizedAddress = address.toLowerCase();
-    const nonce = this.auth.generateNonceForAddress(normalizedAddress, blockchain);
+    const nonce = this.auth.generateNonceForAddress(
+      normalizedAddress,
+      blockchain,
+    );
 
     return {
       nonce,

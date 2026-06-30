@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { AuthService } from '../auth.service';
 
 @Injectable()
@@ -14,11 +20,14 @@ export class WalletSignatureGuard implements CanActivate {
     const address = req.headers['x-wallet-addr'] || req.body?.walletAddress;
     const signature = req.headers['x-wallet-sig'] || req.body?.signature;
     const publicKey = req.headers['x-wallet-pubkey'] || req.body?.publicKey;
-    const message = req.headers['x-wallet-message'] || req.body?.message || 'Login to Zeus';
+    const message =
+      req.headers['x-wallet-message'] || req.body?.message || 'Login to Zeus';
 
     if (!address || !signature) {
       this.logger.warn('Missing wallet address or signature');
-      throw new UnauthorizedException('Wallet address and signature are required');
+      throw new UnauthorizedException(
+        'Wallet address and signature are required',
+      );
     }
 
     // Get nonce from request or generate one

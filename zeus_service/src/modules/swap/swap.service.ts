@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { SwapOrder, SwapStatus, BlockchainType } from './models/swap-order.model';
+import {
+  SwapOrder,
+  SwapStatus,
+  BlockchainType,
+} from './models/swap-order.model';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { sha256Hex } from '../../common/utils/crypto.utils';
 import * as utils from '../starknet/contract-utils';
@@ -93,10 +97,14 @@ export class SwapService {
           'initiate_swap',
           calldata,
         );
-        this.logger.debug('Starknet initiate_swap result: ' + JSON.stringify(res));
+        this.logger.debug(
+          'Starknet initiate_swap result: ' + JSON.stringify(res),
+        );
       }
     } catch (e) {
-      this.logger.warn('Starknet initiate_swap failed (non-fatal): ' + String(e));
+      this.logger.warn(
+        'Starknet initiate_swap failed (non-fatal): ' + String(e),
+      );
     }
   }
 
@@ -111,11 +119,16 @@ export class SwapService {
       const feeBps = parseInt(process.env.STELLAR_FEE_BPS || '50', 10);
 
       if (!verifierAddress || !tokenAddress || !treasury) {
-        this.logger.warn('Stellar escrow config missing, skipping on-chain init');
+        this.logger.warn(
+          'Stellar escrow config missing, skipping on-chain init',
+        );
         return;
       }
 
-      const salt = Buffer.from(order.swapId.padEnd(32, '0'), 'utf8').slice(0, 32);
+      const salt = Buffer.from(order.swapId.padEnd(32, '0'), 'utf8').slice(
+        0,
+        32,
+      );
       const amountA = parseFloat(order.amountA);
 
       const escrowAddress = await this.stellarService.createEscrow({
@@ -132,12 +145,14 @@ export class SwapService {
       // Update order with Stellar escrow address
       await this.repo.update(
         { swapId: order.swapId },
-        { stellarEscrowAddress: escrowAddress }
+        { stellarEscrowAddress: escrowAddress },
       );
 
       this.logger.log(`Stellar escrow created at: ${escrowAddress}`);
     } catch (e) {
-      this.logger.warn('Stellar escrow creation failed (non-fatal): ' + String(e));
+      this.logger.warn(
+        'Stellar escrow creation failed (non-fatal): ' + String(e),
+      );
     }
   }
 
@@ -154,7 +169,10 @@ export class SwapService {
     timeoutTimestamp: number;
     feeBps: number;
   }): Promise<string> {
-    const salt = Buffer.from(params.swapId.padEnd(32, '0'), 'utf8').slice(0, 32);
+    const salt = Buffer.from(params.swapId.padEnd(32, '0'), 'utf8').slice(
+      0,
+      32,
+    );
 
     const escrowAddress = await this.stellarService.createEscrow({
       salt,
@@ -169,7 +187,7 @@ export class SwapService {
 
     await this.repo.update(
       { swapId: params.swapId },
-      { stellarEscrowAddress: escrowAddress }
+      { stellarEscrowAddress: escrowAddress },
     );
 
     return escrowAddress;
@@ -190,7 +208,9 @@ export class SwapService {
     });
 
     if (result.valid && result.journal) {
-      this.logger.log(`ZK proof verified for BTC tx: ${result.journal.btcTxHash}`);
+      this.logger.log(
+        `ZK proof verified for BTC tx: ${result.journal.btcTxHash}`,
+      );
     }
 
     return result;
@@ -267,7 +287,9 @@ export class SwapService {
     }
 
     // TODO: Call the Stellar escrow claim_swap method
-    this.logger.log(`Completing Stellar escrow ${escrowAddress} for swap ${swapId}`);
+    this.logger.log(
+      `Completing Stellar escrow ${escrowAddress} for swap ${swapId}`,
+    );
     await this.notifySwapParticipants(swapId, 'completed');
     await this.publishSwapDelta({ swapId } as SwapOrder, 'completed');
     return { success: true, journal: verification.journal };
@@ -296,7 +318,10 @@ export class SwapService {
     }
   }
 
-  private async notifySwapParticipants(swapId: string, eventType: string): Promise<void> {
+  private async notifySwapParticipants(
+    swapId: string,
+    eventType: string,
+  ): Promise<void> {
     try {
       const s = await this.repo.findOneBy({ swapId });
       if (!s) return;
@@ -324,7 +349,10 @@ export class SwapService {
     }
   }
 
-  private async publishSwapDelta(order: SwapOrder, eventType: string): Promise<void> {
+  private async publishSwapDelta(
+    order: SwapOrder,
+    eventType: string,
+  ): Promise<void> {
     try {
       const room = `swap:${order.swapId}`;
       await this.notifications.publishToRoom(room, 'swap.delta', {

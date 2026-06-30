@@ -19,7 +19,6 @@ import { ApiModule } from './modules/api/api.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { StellarModule } from './modules/stellar/stellar.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),

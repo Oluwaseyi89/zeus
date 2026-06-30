@@ -1,6 +1,9 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
-import { verifyWalletSignature, generateNonce } from '../../common/utils/crypto.utils';
+import {
+  verifyWalletSignature,
+  generateNonce,
+} from '../../common/utils/crypto.utils';
 import { ConfigService } from '@nestjs/config';
 
 interface NonceRecord {
@@ -23,15 +26,26 @@ export class AuthService {
   constructor(private configService: ConfigService) {}
 
   private getJwtSecret(): string {
-    return this.configService.get<string>('jwt.secret') || process.env.JWT_SECRET || 'dev-jwt-secret';
+    return (
+      this.configService.get<string>('jwt.secret') ||
+      process.env.JWT_SECRET ||
+      'dev-jwt-secret'
+    );
   }
 
   private getJwtExpiresIn(): string {
-    return this.configService.get<string>('jwt.expiresIn') || process.env.JWT_EXPIRES_IN || '7d';
+    return (
+      this.configService.get<string>('jwt.expiresIn') ||
+      process.env.JWT_EXPIRES_IN ||
+      '7d'
+    );
   }
 
   async validateApiKey(key: string): Promise<boolean> {
-    const apiKey = this.configService.get<string>('apiKey') || process.env.API_KEY || 'dev-api-key';
+    const apiKey =
+      this.configService.get<string>('apiKey') ||
+      process.env.API_KEY ||
+      'dev-api-key';
     return key === apiKey;
   }
 
@@ -46,8 +60,12 @@ export class AuthService {
     return this.tokens.has(token) ? this.tokens.get(token) : null;
   }
 
-  createJwtForUser(userId: string, walletAddress?: string, blockchain?: string): string {
-    const payload = { 
+  createJwtForUser(
+    userId: string,
+    walletAddress?: string,
+    blockchain?: string,
+  ): string {
+    const payload = {
       sub: userId,
       walletAddress,
       blockchain,
@@ -58,7 +76,9 @@ export class AuthService {
     return token;
   }
 
-  verifyJwt(token: string): { sub: string; walletAddress?: string; blockchain?: string } | null {
+  verifyJwt(
+    token: string,
+  ): { sub: string; walletAddress?: string; blockchain?: string } | null {
     try {
       const decoded = jwt.verify(token, this.getJwtSecret()) as any;
       return decoded;
@@ -70,12 +90,15 @@ export class AuthService {
   /**
    * Generate and store a nonce for wallet authentication
    */
-  generateNonceForAddress(address: string, blockchain: 'stellar' | 'bitcoin' | 'starknet' = 'stellar'): string {
+  generateNonceForAddress(
+    address: string,
+    blockchain: 'stellar' | 'bitcoin' | 'starknet' = 'stellar',
+  ): string {
     const normalizedAddress = address.toLowerCase();
     const nonce = generateNonce(address);
-    
-    this.nonces.set(normalizedAddress, { 
-      nonce, 
+
+    this.nonces.set(normalizedAddress, {
+      nonce,
       createdAt: Date.now(),
       blockchain,
     });
@@ -90,29 +113,29 @@ export class AuthService {
   getNonceForAddress(address: string): string | null {
     const normalizedAddress = address.toLowerCase();
     const record = this.nonces.get(normalizedAddress);
-    
+
     if (!record) return null;
-    
+
     // Nonce expires after 5 minutes
     if (Date.now() - record.createdAt > 5 * 60 * 1000) {
       this.nonces.delete(normalizedAddress);
       return null;
     }
-    
+
     return record.nonce;
   }
 
   getNonceRecord(address: string): NonceRecord | null {
     const normalizedAddress = address.toLowerCase();
     const record = this.nonces.get(normalizedAddress);
-    
+
     if (!record) return null;
-    
+
     if (Date.now() - record.createdAt > 5 * 60 * 1000) {
       this.nonces.delete(normalizedAddress);
       return null;
     }
-    
+
     return record;
   }
 
@@ -175,7 +198,9 @@ export class AuthService {
   ): Promise<{ token: string; address: string; blockchain: string }> {
     const record = this.getNonceRecord(address);
     if (!record) {
-      throw new UnauthorizedException('Nonce not found or expired. Request /auth/nonce first.');
+      throw new UnauthorizedException(
+        'Nonce not found or expired. Request /auth/nonce first.',
+      );
     }
 
     const isValid = await this.verifyWalletSignature(

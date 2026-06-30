@@ -1,23 +1,66 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { Request } from 'express';
 import { SwapService } from './swap.service';
+import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    walletAddress?: string;
+    blockchain?: string;
+  };
+}
 
 @Controller('swap')
 export class SwapController {
   constructor(private readonly swapService: SwapService) {}
 
+  /**
+   * Create a new swap order (public - requires wallet auth)
+   */
   @Post()
-  async create(@Body() dto: CreateOrderDto) {
-    const r = await this.swapService.createOrder(dto);
-    return { swapId: r.swapId, status: r.status };
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateOrderDto) {
+    const userId = req.user?.id;
+    const walletAddress = req.user?.walletAddress;
+
+    // If wallet address is available, use it as initiator
+    if (walletAddress && !dto.initiator) {
+      dto.initiator = walletAddress;
+    }
+
+    const result = await this.swapService.createOrder(dto);
+    return {
+      swapId: result.swapId,
+      status: result.status,
+      blockchain: result.blockchain,
+    };
   }
 
+  /**
+   * Get swap details by ID (public)
+   */
   @Get(':id')
   async get(@Param('id') id: string) {
     return this.swapService.getBySwapId(id);
   }
 
+  /**
+   * Get on-chain swap details (admin only)
+   */
   @Get(':id/onchain')
   @UseGuards(ApiKeyGuard)
   async getOnChain(
@@ -28,6 +71,9 @@ export class SwapController {
     return this.swapService.getOnChainSwap(escrow, id);
   }
 
+  /**
+   * Fund a Starknet swap (admin only)
+   */
   @Post(':id/fund')
   @UseGuards(ApiKeyGuard)
   async fund(
@@ -38,6 +84,9 @@ export class SwapController {
     return this.swapService.fundOnChain(escrow!, id);
   }
 
+  /**
+   * Complete a Starknet swap (admin only)
+   */
   @Post(':id/complete')
   @UseGuards(ApiKeyGuard)
   async complete(
@@ -48,6 +97,9 @@ export class SwapController {
     return this.swapService.completeOnChain(escrow!, id, body.secret);
   }
 
+  /**
+   * Refund a Starknet swap (admin only)
+   */
   @Post(':id/refund')
   @UseGuards(ApiKeyGuard)
   async refund(
@@ -59,61 +111,97 @@ export class SwapController {
   }
 
   /**
-   * Create a Stellar escrow for a swap
+   * Create a Stellar escrow for a swap (authenticated user)
    */
   @Post(':id/stellar-escrow')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
   async createStellarEscrow(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       verifierAddress: string;
       tokenAddress: string;
-      depositor: string;
+      depositor?: string;
       treasury: string;
       swapAmount: number;
       timeoutTimestamp: number;
       feeBps: number;
     },
   ) {
+    const userId = req.user?.id;
+    const walletAddress = req.user?.walletAddress;
+
+    if (!userId) {
+      return { error: 'User not authenticated' };
+    }
+
     const escrowAddress = await this.swapService.createStellarEscrow({
       swapId: id,
       verifierAddress: body.verifierAddress,
       tokenAddress: body.tokenAddress,
-      depositor: body.depositor,
+      depositor: body.depositor || (walletAddress as string),
       treasury: body.treasury,
       swapAmount: body.swapAmount,
       timeoutTimestamp: body.timeoutTimestamp,
       feeBps: body.feeBps,
     });
-    return { escrowAddress };
+
+    return {
+      success: true,
+      escrowAddress,
+      createdBy: userId,
+    };
   }
 
   /**
-   * Fund a Stellar escrow
+   * Fund a Stellar escrow (authenticated user)
    */
   @Post(':id/stellar-fund')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async fundStellar(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { escrowAddress: string; amount: number },
   ) {
-    return this.swapService.fundStellarSwap(body.escrowAddress, id, body.amount);
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return { error: 'User not authenticated' };
+    }
+
+    return this.swapService.fundStellarSwap(
+      body.escrowAddress,
+      id,
+      body.amount,
+    );
   }
 
   /**
-   * Complete a Stellar swap with ZK proof verification
+   * Complete a Stellar swap with ZK proof verification (authenticated user)
    */
   @Post(':id/stellar-complete')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async completeStellar(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       escrowAddress: string;
       journalBytes: string;
       seal: string;
       imageId: string;
     },
   ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return { error: 'User not authenticated' };
+    }
+
     const result = await this.swapService.completeStellarSwap(
       body.escrowAddress,
       id,
@@ -121,107 +209,45 @@ export class SwapController {
       Buffer.from(body.seal, 'hex'),
       Buffer.from(body.imageId, 'hex'),
     );
-    return result;
+
+    return {
+      success: result.success,
+      journal: result.journal,
+      completedBy: userId,
+    };
   }
 
   /**
-   * Verify a ZK proof for a Stellar swap
+   * Verify a ZK proof for a Stellar swap (authenticated user)
    */
   @Post('stellar/verify-proof')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async verifyStellarProof(
-    @Body() body: {
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
       journalBytes: string;
       seal: string;
       imageId: string;
     },
   ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return { error: 'User not authenticated' };
+    }
+
     const result = await this.swapService.verifyStellarProof({
       journalBytes: Buffer.from(body.journalBytes, 'hex'),
       seal: Buffer.from(body.seal, 'hex'),
       imageId: Buffer.from(body.imageId, 'hex'),
     });
-    return result;
+
+    return {
+      valid: result.valid,
+      journal: result.journal,
+      verifiedBy: userId,
+    };
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
-// import { SwapService } from './swap.service';
-// import { ApiKeyGuard } from '../auth/guards/api-key.guard';
-// import { CreateOrderDto } from './dto/create-order.dto';
-
-// @Controller('swap')
-// export class SwapController {
-//   constructor(private readonly swapService: SwapService) {}
-
-//   @Post()
-//   async create(@Body() dto: CreateOrderDto) {
-//     const r = await this.swapService.createOrder(dto);
-//     return { swapId: r.swapId, status: r.status };
-//   }
-
-//   @Get(':id')
-//   async get(@Param('id') id: string) {
-//     return this.swapService.getBySwapId(id);
-//   }
-
-//   @Get(':id/onchain')
-//   @UseGuards(ApiKeyGuard)
-//   async getOnChain(
-//     @Param('id') id: string,
-//     @Body() body: { escrowAddress: string },
-//   ) {
-//     const escrow = body?.escrowAddress ?? process.env.SWAP_ESCROW_ADDRESS;
-//     return this.swapService.getOnChainSwap(escrow, id);
-//   }
-
-//   @Post(':id/fund')
-//   @UseGuards(ApiKeyGuard)
-//   async fund(
-//     @Param('id') id: string,
-//     @Body() body: { escrowAddress?: string },
-//   ) {
-//     const escrow = body?.escrowAddress ?? process.env.SWAP_ESCROW_ADDRESS;
-//     return this.swapService.fundOnChain(escrow!, id);
-//   }
-
-//   @Post(':id/complete')
-//   @UseGuards(ApiKeyGuard)
-//   async complete(
-//     @Param('id') id: string,
-//     @Body() body: { secret: string; escrowAddress?: string },
-//   ) {
-//     const escrow = body?.escrowAddress ?? process.env.SWAP_ESCROW_ADDRESS;
-//     return this.swapService.completeOnChain(escrow!, id, body.secret);
-//   }
-
-//   @Post(':id/refund')
-//   @UseGuards(ApiKeyGuard)
-//   async refund(
-//     @Param('id') id: string,
-//     @Body() body: { escrowAddress?: string },
-//   ) {
-//     const escrow = body?.escrowAddress ?? process.env.SWAP_ESCROW_ADDRESS;
-//     return this.swapService.refundOnChain(escrow!, id);
-//   }
-// }

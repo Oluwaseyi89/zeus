@@ -29,7 +29,12 @@ export async function verifyWalletSignature(
     case 'bitcoin':
       return verifyBitcoinSignature(address, signature as string, message);
     case 'starknet':
-      return verifyStarknetSignature(address, signature as string[], message, publicKey);
+      return verifyStarknetSignature(
+        address,
+        signature as string[],
+        message,
+        publicKey,
+      );
     default:
       return false;
   }
@@ -38,7 +43,11 @@ export async function verifyWalletSignature(
 /**
  * Verify Stellar (Freighter) wallet signature
  */
-function verifyStellarSignature(address: string, signature: string, message: string): boolean {
+function verifyStellarSignature(
+  address: string,
+  signature: string,
+  message: string,
+): boolean {
   try {
     // Stellar uses Ed25519 signatures
     // The signature should be a base64-encoded signature
@@ -61,7 +70,11 @@ function verifyStellarSignature(address: string, signature: string, message: str
 /**
  * Verify Bitcoin (UniSat) wallet signature
  */
-function verifyBitcoinSignature(address: string, signature: string, message: string): boolean {
+function verifyBitcoinSignature(
+  address: string,
+  signature: string,
+  message: string,
+): boolean {
   try {
     // Bitcoin uses ECDSA signatures (secp256k1)
     // Expected format: base64-encoded signature

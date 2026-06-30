@@ -42,10 +42,18 @@ export class StellarService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const rpcUrl = this.configService.get<string>('stellar.rpcUrl') || 'https://soroban-testnet.stellar.org';
-    const networkPassphrase = this.configService.get<string>('stellar.networkPassphrase') || 'Test SDF Network ; September 2015';
-    const factoryContractId = this.configService.get<string>('stellar.factoryContractId');
-    const verifierContractId = this.configService.get<string>('stellar.verifierContractId');
+    const rpcUrl =
+      this.configService.get<string>('stellar.rpcUrl') ||
+      'https://soroban-testnet.stellar.org';
+    const networkPassphrase =
+      this.configService.get<string>('stellar.networkPassphrase') ||
+      'Test SDF Network ; September 2015';
+    const factoryContractId = this.configService.get<string>(
+      'stellar.factoryContractId',
+    );
+    const verifierContractId = this.configService.get<string>(
+      'stellar.verifierContractId',
+    );
     const secret = this.configService.get<string>('stellar.operatorSecret');
 
     // Initialize RPC client

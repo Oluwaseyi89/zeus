@@ -74,7 +74,9 @@ export class ZkService {
       });
 
       if (result.valid && result.journal) {
-        this.logger.log(`ZK proof verified for BTC tx: ${result.journal.btcTxHash}`);
+        this.logger.log(
+          `ZK proof verified for BTC tx: ${result.journal.btcTxHash}`,
+        );
       }
 
       return result;
