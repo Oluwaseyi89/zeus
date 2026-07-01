@@ -8,22 +8,50 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  BadRequestException,
+  UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
-import { Request } from 'express';
-import {
-  StellarService,
-  CreateEscrowParams,
-  VerifyProofParams,
-} from './stellar.service';
+import type { Request } from 'express';
+import { StellarService } from './stellar.service';
+import type { CreateEscrowParams, VerifyProofParams } from './stellar.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 
+// Type definitions
 interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     walletAddress?: string;
     blockchain?: string;
   };
+}
+
+interface RpcStatusResponse {
+  status: 'connected' | 'disconnected';
+  health?: any;
+  error?: string;
+}
+
+interface EscrowResponse {
+  success: boolean;
+  escrowAddress: string;
+  createdBy: string;
+}
+
+interface ProofVerificationResponse {
+  success: boolean;
+  journal?: any;
+  verifiedBy: string;
+}
+
+interface TxSpentResponse {
+  spent: boolean;
+  checkedBy: string;
+}
+
+interface IsTxSpentDto {
+  btcTxHash: string | Buffer;
 }
 
 @Controller('stellar')
@@ -35,7 +63,7 @@ export class StellarController {
    */
   @Get('operator/public-key')
   @UseGuards(ApiKeyGuard)
-  async getOperatorPublicKey() {
+  async getOperatorPublicKey(): Promise<{ publicKey: string | null }> {
     return {
       publicKey: this.stellarService.getOperatorPublicKey(),
     };
@@ -46,7 +74,7 @@ export class StellarController {
    */
   @Get('rpc/status')
   @UseGuards(ApiKeyGuard)
-  async getRpcStatus() {
+  async getRpcStatus(): Promise<RpcStatusResponse> {
     try {
       const rpc = this.stellarService.getRpcClient();
       const health = await rpc.getHealth();
@@ -71,19 +99,15 @@ export class StellarController {
   async createEscrow(
     @Req() req: AuthenticatedRequest,
     @Body() body: CreateEscrowParams,
-  ) {
-    const userId = req.user?.id;
+  ): Promise<EscrowResponse> {
+    const userId = this.extractUserId(req);
     const walletAddress = req.user?.walletAddress;
-
-    if (!userId) {
-      return { error: 'User not authenticated' };
-    }
 
     const escrowAddress = await this.stellarService.createEscrow({
       salt: body.salt,
       verifierAddress: body.verifierAddress,
       tokenAddress: body.tokenAddress,
-      depositor: body.depositor || (walletAddress as string),
+      depositor: body.depositor || walletAddress,
       treasury: body.treasury,
       swapAmount: body.swapAmount,
       timeoutTimestamp: body.timeoutTimestamp,
@@ -106,12 +130,8 @@ export class StellarController {
   async verifyProof(
     @Req() req: AuthenticatedRequest,
     @Body() body: VerifyProofParams,
-  ) {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return { error: 'User not authenticated' };
-    }
+  ): Promise<ProofVerificationResponse> {
+    const userId = this.extractUserId(req);
 
     const result = await this.stellarService.verifyProof({
       journalBytes: body.journalBytes,
@@ -134,18 +154,11 @@ export class StellarController {
   @HttpCode(HttpStatus.OK)
   async isTxSpent(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { btcTxHash: string | Buffer },
-  ) {
-    const userId = req.user?.id;
+    @Body() body: IsTxSpentDto,
+  ): Promise<TxSpentResponse> {
+    const userId = this.extractUserId(req);
 
-    if (!userId) {
-      return { error: 'User not authenticated' };
-    }
-
-    const btcTxHash =
-      typeof body.btcTxHash === 'string'
-        ? Buffer.from(body.btcTxHash.replace('0x', ''), 'hex')
-        : body.btcTxHash;
+    const btcTxHash = this.normalizeBtcTxHash(body.btcTxHash);
 
     const isSpent = await this.stellarService.isTxSpent(btcTxHash);
 
@@ -160,11 +173,51 @@ export class StellarController {
    */
   @Get('status')
   @UseGuards(ApiKeyGuard)
-  async getStatus() {
+  async getStatus(): Promise<{
+    service: string;
+    status: string;
+    operatorConfigured: boolean;
+  }> {
     return {
       service: 'StellarService',
       status: 'operational',
       operatorConfigured: !!this.stellarService.getOperatorPublicKey(),
     };
+  }
+
+  // --- Private helper methods ---
+
+  /**
+   * Extract user ID from authenticated request
+   * @throws UnauthorizedException if user is not authenticated
+   */
+  private extractUserId(req: AuthenticatedRequest): string {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return userId;
+  }
+
+  /**
+   * Normalize BTC transaction hash to Buffer
+   * Handles both hex strings and Buffer inputs
+   */
+  private normalizeBtcTxHash(btcTxHash: string | Buffer): Buffer {
+    if (typeof btcTxHash === 'string') {
+      const cleanHex = btcTxHash.replace('0x', '');
+      if (!cleanHex) {
+        throw new BadRequestException('Invalid BTC transaction hash');
+      }
+      return Buffer.from(cleanHex, 'hex');
+    }
+
+    if (Buffer.isBuffer(btcTxHash)) {
+      return btcTxHash;
+    }
+
+    throw new BadRequestException('btcTxHash must be a string or Buffer');
   }
 }

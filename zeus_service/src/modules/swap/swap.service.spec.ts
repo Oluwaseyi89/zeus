@@ -1,4 +1,3 @@
-// --- ADD THESE MOCKS AT THE VERY TOP, BEFORE ANY IMPORTS ---
 jest.mock('../../bindings/escrow-factory', () => ({
   Client: jest.fn().mockImplementation(() => ({
     create_escrow: jest.fn(),

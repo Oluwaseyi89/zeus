@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Keypair, rpc } from '@stellar/stellar-sdk';
-import { Client as FactoryClient } from '../../bindings/escrow-factory';
-import { Client as VerifierClient } from '../../bindings/zk-verifier';
+import { Client as FactoryClient } from '../../bindings/escrow-factory/dist';
+import { Client as VerifierClient } from '../../bindings/zk-verifier/dist';
 
 export interface CreateEscrowParams {
   salt: Buffer;

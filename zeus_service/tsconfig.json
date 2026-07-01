@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -19,10 +19,12 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "isolatedModules": true
+    "isolatedModules": false,
+    "paths": {
+      "@bindings/escrow-factory/dist": ["src/bindings/escrow-factory/dist/index.js"],
+      "@bindings/zk-verifier/dist": ["src/bindings/zk-verifier/dist/index.js"]
+    }
   },
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/bindings/**/node_modules"]
 }

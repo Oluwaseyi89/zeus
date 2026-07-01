@@ -3,8 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { StellarService, CreateEscrowParams, VerifyProofParams } from './stellar.service';
 import { Keypair, rpc } from '@stellar/stellar-sdk';
 
-// Mock the bindings - using jest.mock with factory functions
-// These paths must match the actual import paths used in stellar.service.ts
 jest.mock('../../bindings/escrow-factory', () => ({
   Client: jest.fn().mockImplementation(() => ({
     create_escrow: jest.fn(),
