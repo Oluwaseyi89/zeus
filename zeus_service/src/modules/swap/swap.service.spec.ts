@@ -1,3 +1,20 @@
+// --- ADD THESE MOCKS AT THE VERY TOP, BEFORE ANY IMPORTS ---
+jest.mock('../../bindings/escrow-factory', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    create_escrow: jest.fn(),
+  })),
+}));
+
+jest.mock('../../bindings/zk-verifier', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    verify_btc_swap: jest.fn(),
+    is_tx_spent: jest.fn(),
+  })),
+}));
+
+jest.mock('@stellar/stellar-sdk');
+
+// Then the rest of your imports
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';

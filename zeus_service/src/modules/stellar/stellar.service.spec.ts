@@ -2,15 +2,29 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { StellarService, CreateEscrowParams, VerifyProofParams } from './stellar.service';
 import { Keypair, rpc } from '@stellar/stellar-sdk';
+
+// Mock the bindings - using jest.mock with factory functions
+// These paths must match the actual import paths used in stellar.service.ts
+jest.mock('../../bindings/escrow-factory', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    create_escrow: jest.fn(),
+  })),
+}));
+
+jest.mock('../../bindings/zk-verifier', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    verify_btc_swap: jest.fn(),
+    is_tx_spent: jest.fn(),
+  })),
+}));
+
+jest.mock('@stellar/stellar-sdk');
+
+// Import after mocking - use the same paths as the actual code
 import { Client as FactoryClient } from '../../bindings/escrow-factory';
 import { Client as VerifierClient } from '../../bindings/zk-verifier';
 
-// Mock the bindings - use jest.createMockFromModule for proper typing
-jest.mock('../../bindings/escrow-factory');
-jest.mock('../../bindings/zk-verifier');
-jest.mock('@stellar/stellar-sdk');
-
-// Create properly typed mocks
+// Get the mocked constructors
 const MockFactoryClient = FactoryClient as jest.MockedClass<typeof FactoryClient>;
 const MockVerifierClient = VerifierClient as jest.MockedClass<typeof VerifierClient>;
 const MockRpcServer = rpc.Server as jest.MockedClass<typeof rpc.Server>;
@@ -39,6 +53,17 @@ describe('StellarService', () => {
     journalBytes: Buffer.from('mock_journal_bytes'),
     seal: Buffer.from('mock_seal_data'),
     imageId: Buffer.from('mock_image_id'),
+  };
+
+  // Helper to mock Keypair.fromSecret
+  const mockKeypairFromSecret = () => {
+    const mockPublicKey = 'GOPERATOR1234567890123456789012345678901234567890';
+    const mockKeypairInstance = {
+      publicKey: jest.fn().mockReturnValue(mockPublicKey),
+      sign: jest.fn(),
+    };
+    (Keypair.fromSecret as jest.Mock).mockReturnValue(mockKeypairInstance);
+    return mockPublicKey;
   };
 
   beforeEach(async () => {
@@ -71,15 +96,15 @@ describe('StellarService', () => {
 
   describe('onModuleInit', () => {
     it('should initialize Stellar clients successfully', () => {
-      // Mock the RPC server
+      // Mock Keypair.fromSecret to return a valid object
+      const mockPublicKey = mockKeypairFromSecret();
+
       const mockRpcServerInstance = { getHealth: jest.fn().mockResolvedValue({}) };
       MockRpcServer.mockImplementation(() => mockRpcServerInstance as any);
 
-      // Mock the FactoryClient
       const mockFactoryInstance = { create_escrow: jest.fn() };
       MockFactoryClient.mockImplementation(() => mockFactoryInstance as any);
 
-      // Mock the VerifierClient
       const mockVerifierInstance = {
         verify_btc_swap: jest.fn(),
         is_tx_spent: jest.fn(),
@@ -90,7 +115,7 @@ describe('StellarService', () => {
 
       expect(service.factoryClient).toBeDefined();
       expect(service.verifierClient).toBeDefined();
-      expect(service.getOperatorPublicKey()).toBeDefined();
+      expect(service.getOperatorPublicKey()).toBe(mockPublicKey);
     });
 
     it('should handle missing operator secret', () => {
@@ -118,6 +143,8 @@ describe('StellarService', () => {
       service.onModuleInit();
 
       expect(service.getOperatorPublicKey()).toBeNull();
+      // Keypair.fromSecret should NOT have been called when secret is missing
+      expect(Keypair.fromSecret).not.toHaveBeenCalled();
     });
   });
 
@@ -130,7 +157,6 @@ describe('StellarService', () => {
         }),
       };
 
-      // Mock the factory client
       const mockFactoryInstance = {
         create_escrow: jest.fn().mockResolvedValue(mockTx),
       };
@@ -254,13 +280,8 @@ describe('StellarService', () => {
 
   describe('getOperatorPublicKey', () => {
     it('should return the operator public key when configured', () => {
-      const mockPublicKey = 'GOPERATOR1234567890123456789012345678901234567890';
-      const mockKeypairInstance = {
-        publicKey: jest.fn().mockReturnValue(mockPublicKey),
-      };
-      MockKeypair.fromSecret = jest.fn().mockReturnValue(mockKeypairInstance as any);
+      const mockPublicKey = mockKeypairFromSecret();
 
-      // Re-initialize to trigger keypair creation
       const mockRpcServerInstance = { getHealth: jest.fn().mockResolvedValue({}) };
       MockRpcServer.mockImplementation(() => mockRpcServerInstance as any);
 

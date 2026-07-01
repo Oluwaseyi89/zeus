@@ -54,8 +54,16 @@ export class ZkService {
       block_confirmations: params.blockConfirmations,
     };
 
+    // Fix: Convert BigInt to string for JSON serialization
+    const journalForJson = {
+      btc_tx_hash: journal.btc_tx_hash.toString('hex'),
+      recipient_stellar: journal.recipient_stellar,
+      swap_amount: journal.swap_amount.toString(),
+      block_confirmations: journal.block_confirmations,
+    };
+
     // In a real implementation, this would be encoded properly
-    const journalBytes = Buffer.from(JSON.stringify(journal));
+    const journalBytes = Buffer.from(JSON.stringify(journalForJson));
     const seal = Buffer.from('mock_seal_data');
     const imageId = Buffer.from('mock_image_id');
 
