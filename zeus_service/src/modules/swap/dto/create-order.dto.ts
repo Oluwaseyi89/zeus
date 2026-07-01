@@ -3,7 +3,9 @@ import {
   IsNotEmpty,
   IsNumberString,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
+import { BlockchainType } from '../models/swap-order.model';
 
 export class CreateOrderDto {
   @IsString()
@@ -34,4 +36,8 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   secret?: string;
+
+  @IsOptional()
+  @IsEnum(BlockchainType)
+  blockchain?: BlockchainType;
 }

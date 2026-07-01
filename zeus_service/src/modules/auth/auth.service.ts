@@ -1,10 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
-let starknetLib: any = null;
-try {
-  starknetLib = require('starknet');
-} catch (e) {
-  starknetLib = null;
+import {
+  verifyWalletSignature,
+  generateNonce,
+} from '../../common/utils/crypto.utils';
+import { ConfigService } from '@nestjs/config';
+
+interface NonceRecord {
+  nonce: string;
+  createdAt: number;
+  blockchain: 'stellar' | 'bitcoin' | 'starknet';
 }
 
 interface TokenRecord {
@@ -15,19 +20,36 @@ interface TokenRecord {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  // legacy in-memory token store (kept for compatibility)
   private tokens = new Map<string, TokenRecord>();
+  private nonces = new Map<string, NonceRecord>();
 
-  private jwtSecret() {
-    return process.env.JWT_SECRET ?? 'dev-jwt-secret';
+  constructor(private configService: ConfigService) {}
+
+  private getJwtSecret(): string {
+    return (
+      this.configService.get<string>('jwt.secret') ||
+      process.env.JWT_SECRET ||
+      'dev-jwt-secret'
+    );
+  }
+
+  private getJwtExpiresIn(): string {
+    return (
+      this.configService.get<string>('jwt.expiresIn') ||
+      process.env.JWT_EXPIRES_IN ||
+      '7d'
+    );
   }
 
   async validateApiKey(key: string): Promise<boolean> {
-    return key === (process.env.API_KEY ?? 'dev-api-key');
+    const apiKey =
+      this.configService.get<string>('apiKey') ||
+      process.env.API_KEY ||
+      'dev-api-key';
+    return key === apiKey;
   }
 
-  // legacy token creation (kept)
-  async createTokenForUser(userId: string) {
+  async createTokenForUser(userId: string): Promise<string> {
     const token = 'tok_' + Math.random().toString(36).slice(2);
     this.tokens.set(token, { token, userId });
     this.logger.debug(`Created token for ${userId}`);
@@ -38,113 +60,179 @@ export class AuthService {
     return this.tokens.has(token) ? this.tokens.get(token) : null;
   }
 
-  // JWT helpers for mobile sessions
-  createJwtForUser(userId: string) {
-    const payload = { sub: userId };
-    const token = jwt.sign(payload, this.jwtSecret(), {
-      expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+  createJwtForUser(
+    userId: string,
+    walletAddress?: string,
+    blockchain?: string,
+  ): string {
+    const payload = {
+      sub: userId,
+      walletAddress,
+      blockchain,
+    };
+    const token = jwt.sign(payload, this.getJwtSecret(), {
+      expiresIn: this.getJwtExpiresIn(),
     });
     return token;
   }
 
-  verifyJwt(token: string): { sub: string } | null {
+  verifyJwt(
+    token: string,
+  ): { sub: string; walletAddress?: string; blockchain?: string } | null {
     try {
-      const decoded = jwt.verify(token, this.jwtSecret()) as any;
+      const decoded = jwt.verify(token, this.getJwtSecret()) as any;
       return decoded;
     } catch (e) {
       return null;
     }
   }
 
-  // Nonce-based wallet login helpers
-  private nonces = new Map<string, { nonce: string; createdAt: number }>();
+  /**
+   * Generate and store a nonce for wallet authentication
+   */
+  generateNonceForAddress(
+    address: string,
+    blockchain: 'stellar' | 'bitcoin' | 'starknet' = 'stellar',
+  ): string {
+    const normalizedAddress = address.toLowerCase();
+    const nonce = generateNonce(address);
 
-  generateNonceForAddress(address: string) {
-    const nonce = 'nonce_' + Math.random().toString(36).slice(2);
-    this.nonces.set(address.toLowerCase(), { nonce, createdAt: Date.now() });
+    this.nonces.set(normalizedAddress, {
+      nonce,
+      createdAt: Date.now(),
+      blockchain,
+    });
+
+    // Clean up old nonces periodically (in production, use a cleanup job)
+    this.cleanupExpiredNonces();
+
+    this.logger.debug(`Generated nonce for ${address} on ${blockchain}`);
     return nonce;
   }
 
-  getNonceForAddress(address: string) {
-    const rec = this.nonces.get(address.toLowerCase());
-    if (!rec) return null;
-    // nonce valid for 5 minutes
-    if (Date.now() - rec.createdAt > 5 * 60 * 1000) {
-      this.nonces.delete(address.toLowerCase());
+  getNonceForAddress(address: string): string | null {
+    const normalizedAddress = address.toLowerCase();
+    const record = this.nonces.get(normalizedAddress);
+
+    if (!record) return null;
+
+    // Nonce expires after 5 minutes
+    if (Date.now() - record.createdAt > 5 * 60 * 1000) {
+      this.nonces.delete(normalizedAddress);
       return null;
     }
-    return rec.nonce;
+
+    return record.nonce;
   }
 
-  consumeNonce(address: string) {
-    const rec = this.nonces.get(address.toLowerCase());
-    if (!rec) return null;
-    this.nonces.delete(address.toLowerCase());
-    return rec.nonce;
+  getNonceRecord(address: string): NonceRecord | null {
+    const normalizedAddress = address.toLowerCase();
+    const record = this.nonces.get(normalizedAddress);
+
+    if (!record) return null;
+
+    if (Date.now() - record.createdAt > 5 * 60 * 1000) {
+      this.nonces.delete(normalizedAddress);
+      return null;
+    }
+
+    return record;
+  }
+
+  consumeNonce(address: string): string | null {
+    const normalizedAddress = address.toLowerCase();
+    const record = this.nonces.get(normalizedAddress);
+    if (!record) return null;
+    this.nonces.delete(normalizedAddress);
+    return record.nonce;
   }
 
   /**
-   * Best-effort verification of signature over nonce using starknet lib when available.
-   * Accepts signature as array or hex string. If `publicKey` is provided, it's used for verification.
-   * In non-production (NODE_ENV !== 'production'), falls back to accepting the proof when lib not available.
+   * Verify wallet signature with proper blockchain-specific validation
    */
-  verifyWalletSignature(
+  async verifyWalletSignature(
     address: string,
-    nonce: string,
-    signature: any,
+    signature: string | string[],
+    message?: string,
     publicKey?: string,
-  ): boolean {
-    // prefer starknet ec verify if available and publicKey provided
-    try {
-      if (starknetLib && starknetLib.ec && publicKey) {
-        // compute message hash - best-effort using common util
-        const hashFn =
-          starknetLib.hash?.computeHashOnElements ??
-          starknetLib.default?.hash?.computeHashOnElements ??
-          null;
-        let msgHash: any = nonce;
-        if (hashFn) {
-          try {
-            msgHash = hashFn([nonce]);
-          } catch (e) {
-            // fallback to raw nonce
-            msgHash = nonce;
-          }
-        }
-
-        // Normalize signature formats: accept array or hex string like 0x<r><s>
-        let sigArr: any[] | null = null;
-        if (Array.isArray(signature) && signature.length >= 2) {
-          sigArr = signature.map((s) =>
-            typeof s === 'bigint' ? s.toString() : s,
-          );
-        } else if (typeof signature === 'string') {
-          const hex = signature.replace(/^0x/, '');
-          if (hex.length >= 2) {
-            const half = Math.floor(hex.length / 2);
-            const a = '0x' + hex.slice(0, half);
-            const b = '0x' + hex.slice(half);
-            sigArr = [a, b];
-          }
-        }
-
-        if (sigArr && typeof starknetLib.ec.verify === 'function') {
-          try {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            const ok = starknetLib.ec.verify(sigArr, msgHash, publicKey);
-            return !!ok;
-          } catch (e) {
-            this.logger.debug('ec.verify threw: ' + String(e));
-          }
-        }
-      }
-    } catch (e) {
-      this.logger.debug('starknet signature verify failed: ' + String(e));
+  ): Promise<boolean> {
+    const record = this.getNonceRecord(address);
+    if (!record) {
+      this.logger.warn(`No nonce found for ${address}`);
+      return false;
     }
 
-    // fallback: accept in dev mode only
-    if ((process.env.NODE_ENV ?? 'development') !== 'production') return true;
-    return false;
+    const nonce = record.nonce;
+    const blockchain = record.blockchain;
+
+    try {
+      const isValid = await verifyWalletSignature({
+        address,
+        signature,
+        message: message || nonce,
+        blockchain,
+        publicKey,
+      });
+
+      if (isValid) {
+        this.logger.debug(`Signature verified for ${address} on ${blockchain}`);
+      } else {
+        this.logger.warn(`Signature verification failed for ${address}`);
+      }
+
+      return isValid;
+    } catch (error) {
+      this.logger.error(`Signature verification error: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Complete wallet login flow
+   */
+  async walletLogin(
+    address: string,
+    signature: string | string[],
+    publicKey?: string,
+    message?: string,
+  ): Promise<{ token: string; address: string; blockchain: string }> {
+    const record = this.getNonceRecord(address);
+    if (!record) {
+      throw new UnauthorizedException(
+        'Nonce not found or expired. Request /auth/nonce first.',
+      );
+    }
+
+    const isValid = await this.verifyWalletSignature(
+      address,
+      signature,
+      message,
+      publicKey,
+    );
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid wallet signature');
+    }
+
+    // Consume the nonce
+    this.consumeNonce(address);
+
+    // Create JWT
+    const token = this.createJwtForUser(address, address, record.blockchain);
+
+    return {
+      token,
+      address,
+      blockchain: record.blockchain,
+    };
+  }
+
+  private cleanupExpiredNonces(): void {
+    const now = Date.now();
+    for (const [key, record] of this.nonces.entries()) {
+      if (now - record.createdAt > 5 * 60 * 1000) {
+        this.nonces.delete(key);
+      }
+    }
   }
 }
