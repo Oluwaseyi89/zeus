@@ -1,8 +1,8 @@
 'use client';
 
-import { ConnectWallet } from '../../components/wallet/ConnectWallet';
-import { useAuth, useWallet, useUI } from '../../store';
-import { tokenStorage } from '../../services/security/storage.service';
+import { ConnectWallet } from '../../src/components/wallet/ConnectWallet';
+import { useAuth, useWallet, useUI } from '../../src/store';
+import { tokenStorage } from '../../src/services/security/storage.service';
 
 export default function WalletSettingsPage() {
   const { isAuthenticated, user, logout } = useAuth();
