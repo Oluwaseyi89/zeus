@@ -14,6 +14,7 @@ export function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/swap', label: 'Swap' },
+    { href: '/orderbook', label: 'Order Book' },
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/inbox', label: 'Inbox' },
   ];
