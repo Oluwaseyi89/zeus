@@ -17,7 +17,7 @@ export function Navbar() {
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/inbox', label: 'Inbox' },
   ];
-
+  
   return (
     <nav className="bg-background border-b border-border px-4 py-3 sticky top-0 z-40">
       <div className="max-w-md mx-auto flex items-center justify-between">
