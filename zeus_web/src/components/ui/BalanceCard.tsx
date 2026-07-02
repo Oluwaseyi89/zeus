@@ -4,10 +4,10 @@ import { useState } from 'react';
 
 interface BalanceCardProps {
   btcBalance?: string;
-  strkBalance?: string;
+  xlmBalance?: string;
 }
 
-export const BalanceCard = ({ btcBalance = '1.24', strkBalance = '12,450.00' }: BalanceCardProps) => {
+export const BalanceCard = ({ btcBalance = '0.5', xlmBalance = '189,532.72' }: BalanceCardProps) => {
   const [isRevealed, setIsRevealed] = useState(false);
 
   return (
@@ -23,7 +23,7 @@ export const BalanceCard = ({ btcBalance = '1.24', strkBalance = '12,450.00' }: 
           {isRevealed ? `${btcBalance} BTC` : '•••• BTC'}
         </p>
         <p className={`text-xl mt-1 ${!isRevealed ? 'blur-text' : 'text-cyan'}`}>
-          {isRevealed ? `≈ ${strkBalance} STRK` : '•••• STRK'}
+          {isRevealed ? `≈ ${xlmBalance} XLM` : '•••• XLM'}
         </p>
       </div>
       <p className="text-gold text-xs text-center italic opacity-70">

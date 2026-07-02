@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Navbar } from '../src/components/navigation/Navbar';
+import { SocketProvider } from '../src/providers/SocketProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,10 +16,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-[#020617] text-white">
-        <Navbar />
-        <main className="min-h-[calc(100vh-4rem)]">
-          {children}
-        </main>
+        <SocketProvider>
+          <Navbar />
+          <main className="min-h-[calc(100vh-4rem)]">
+            {children}
+          </main>
+        </SocketProvider>
       </body>
     </html>
   );
