@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <html lang="en" className="dark">
+      <body className="min-h-screen bg-[#020617] text-white">
         <Navbar />
         <main className="min-h-[calc(100vh-4rem)]">
           {children}

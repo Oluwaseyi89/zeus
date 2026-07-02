@@ -4,27 +4,22 @@ import { useAuth, useWallet } from '../../store';
 
 export function WalletStatus() {
   const { isAuthenticated, user } = useAuth();
-  const { activeWallet, wallets } = useWallet();
+  const { activeWallet } = useWallet();
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="text-xs text-text-secondary">
         Not connected
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <div className="w-2 h-2 bg-green-500 rounded-full" />
-      <span className="text-gray-700 dark:text-gray-300">
-        {user.walletAddress?.slice(0, 6)}...{user.walletAddress?.slice(-4)}
+    <div className="flex items-center gap-2 text-xs">
+      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+      <span className="text-text-secondary font-mono">
+        {user.walletAddress?.slice(0, 4)}...{user.walletAddress?.slice(-4)}
       </span>
-      {activeWallet?.balance && (
-        <span className="text-gray-500 dark:text-gray-400">
-          {activeWallet.balance} {activeWallet.blockchain === 'stellar' ? 'XLM' : 'BTC'}
-        </span>
-      )}
     </div>
   );
 }
