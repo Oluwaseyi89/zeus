@@ -124,17 +124,3 @@ export const unisatService = {
     return typeof window !== 'undefined' && !!window.unisat;
   },
 };
-
-// Type declarations for UniSat
-declare global {
-  interface Window {
-    unisat?: {
-      requestAccounts: () => Promise<string[]>;
-      getBalance: (address?: string) => Promise<{ total: string; confirmed?: string; unconfirmed?: string }>;
-      getPublicKey: () => Promise<string>;
-      signMessage: (message: string) => Promise<string>;
-      sendBitcoin: (toAddress: string, amount: number) => Promise<string>;
-      getUtxos: () => Promise<any[]>;
-    };
-  }
-}

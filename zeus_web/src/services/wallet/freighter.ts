@@ -85,15 +85,3 @@ export const freighterService = {
     return typeof window !== 'undefined' && !!window.freighter;
   },
 };
-
-// Type declarations for Freighter
-declare global {
-  interface Window {
-    freighter?: {
-      connect: () => Promise<{ address: string; publicKey?: string }>;
-      getBalance: (address: string) => Promise<{ balance: string }>;
-      getPublicKey: () => Promise<string>;
-      signMessage: (address: string, message: string) => Promise<string>;
-    };
-  }
-}
