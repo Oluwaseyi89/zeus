@@ -39,10 +39,14 @@ export const unisatService = {
         console.warn('Could not fetch public key:', pubKeyError);
       }
 
-      // Get UTXOs
-      let utxos = [];
+      // Get UTXOs - safely check if method exists
+      let utxos: any[] = [];
       try {
-        utxos = await window.unisat.getUtxos();
+        if (typeof window.unisat.getUtxos === 'function') {
+          utxos = await window.unisat.getUtxos();
+        } else {
+          console.warn('getUtxos method not available in this UniSat version');
+        }
       } catch (utxoError) {
         console.warn('Could not fetch UTXOs:', utxoError);
       }
@@ -65,6 +69,10 @@ export const unisatService = {
     }
 
     try {
+      // Check if signMessage exists
+      if (typeof window.unisat.signMessage !== 'function') {
+        throw new Error('signMessage method not available in this UniSat version');
+      }
       const signature = await window.unisat.signMessage(message);
       return signature;
     } catch (error: any) {
@@ -79,6 +87,9 @@ export const unisatService = {
     }
 
     try {
+      if (typeof window.unisat.getBalance !== 'function') {
+        throw new Error('getBalance method not available in this UniSat version');
+      }
       const balance = await window.unisat.getBalance(address);
       return balance.total || '0';
     } catch (error: any) {
@@ -93,6 +104,9 @@ export const unisatService = {
     }
 
     try {
+      if (typeof window.unisat.sendBitcoin !== 'function') {
+        throw new Error('sendBitcoin method not available in this UniSat version');
+      }
       const txid = await window.unisat.sendBitcoin(toAddress, amount);
       return txid;
     } catch (error: any) {
@@ -107,11 +121,16 @@ export const unisatService = {
     }
 
     try {
+      if (typeof window.unisat.getUtxos !== 'function') {
+        console.warn('getUtxos method not available in this UniSat version');
+        return [];
+      }
       const utxos = await window.unisat.getUtxos();
-      return utxos;
+      return utxos || [];
     } catch (error: any) {
       console.error('UniSat get UTXOs error:', error);
-      throw new Error(error.message || 'Failed to get UTXOs from UniSat');
+      // Don't throw - just return empty array
+      return [];
     }
   },
 
@@ -123,4 +142,34 @@ export const unisatService = {
   isInstalled: (): boolean => {
     return typeof window !== 'undefined' && !!window.unisat;
   },
+
+  // Helper: Check if a specific method exists
+  hasMethod: (methodName: keyof UniSatWalletMethods): boolean => {
+    if (typeof window === 'undefined' || !window.unisat) return false;
+    return typeof window.unisat[methodName] === 'function';
+  },
 };
+
+// Type for UniSat wallet methods
+interface UniSatWalletMethods {
+  requestAccounts: () => Promise<string[]>;
+  getBalance: (address?: string) => Promise<{ total: string; confirmed?: string; unconfirmed?: string }>;
+  getPublicKey: () => Promise<string>;
+  signMessage: (message: string) => Promise<string>;
+  sendBitcoin: (toAddress: string, amount: number) => Promise<string>;
+  getUtxos: () => Promise<any[]>;
+}
+
+// Type declarations for UniSat
+declare global {
+  interface Window {
+    unisat?: {
+      requestAccounts: () => Promise<string[]>;
+      getBalance: (address?: string) => Promise<{ total: string; confirmed?: string; unconfirmed?: string }>;
+      getPublicKey: () => Promise<string>;
+      signMessage: (message: string) => Promise<string>;
+      sendBitcoin?: (toAddress: string, amount: number) => Promise<string>;
+      getUtxos?: () => Promise<any[]>;
+    };
+  }
+}

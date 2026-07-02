@@ -37,13 +37,33 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
         }
       });
     }
-  }, []);
+  }, [isAuthenticated, walletLogin]);
+
+  const isWalletInstalled = (type: 'freighter' | 'unisat'): boolean => {
+    if (typeof window === 'undefined') return false;
+    
+    if (type === 'freighter') {
+      // Check both window.freighter and window.stellar?.freighter
+      return !!(window.freighter || window.stellar?.freighter);
+    }
+    
+    if (type === 'unisat') {
+      return !!window.unisat;
+    }
+    
+    return false;
+  };
 
   const handleConnectFreighter = async () => {
     try {
       setIsConnecting(true);
       setErrorMessage(null);
       setWalletType('freighter');
+
+      // Check if Freighter is installed
+      if (!isWalletInstalled('freighter')) {
+        throw new Error('Freighter wallet is not installed. Please install the Freighter extension.');
+      }
 
       const wallet = await connectFreighter();
       if (!wallet || !wallet.address) {
@@ -88,6 +108,11 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
       setIsConnecting(true);
       setErrorMessage(null);
       setWalletType('unisat');
+
+      // Check if UniSat is installed
+      if (!isWalletInstalled('unisat')) {
+        throw new Error('UniSat wallet is not installed. Please install the UniSat extension.');
+      }
 
       const wallet = await connectUniSat();
       if (!wallet || !wallet.address) {
@@ -135,13 +160,6 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
     } catch (error: any) {
       showToast('Failed to disconnect', 'error');
     }
-  };
-
-  const isWalletInstalled = (type: 'freighter' | 'unisat'): boolean => {
-    if (typeof window === 'undefined') return false;
-    if (type === 'freighter') return !!window.freighter;
-    if (type === 'unisat') return !!window.unisat;
-    return false;
   };
 
   // If already authenticated, show wallet info
@@ -208,7 +226,7 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
             )}
 
             <div className="space-y-3">
-              {/* Freighter Button - Mobile Style */}
+              {/* Freighter Button */}
               <button
                 onClick={handleConnectFreighter}
                 disabled={isConnecting}
@@ -232,7 +250,7 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
                 )}
               </button>
 
-              {/* UniSat Button - Mobile Style */}
+              {/* UniSat Button */}
               <button
                 onClick={handleConnectUniSat}
                 disabled={isConnecting}

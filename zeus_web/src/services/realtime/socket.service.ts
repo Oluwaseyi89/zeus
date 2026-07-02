@@ -53,7 +53,7 @@ class SocketService {
     }
 
     this.isConnecting = true;
-    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3000';
+    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:4000';
 
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
