@@ -30,7 +30,7 @@ async function bootstrap() {
     app.enableCors();
   }
 
-  const port = parseInt(process.env.PORT ?? '3000', 10);
+  const port = parseInt(process.env.PORT ?? '4000', 10);
   // Bind to 0.0.0.0 so devices on the LAN can reach the server
   await app.listen(port, '0.0.0.0');
 }
