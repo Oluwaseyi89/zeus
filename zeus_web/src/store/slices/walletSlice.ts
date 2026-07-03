@@ -8,9 +8,13 @@ export interface WalletState {
   activeWallet: Wallet | null;
   isConnecting: boolean;
   connectionError: string | null;
+  freighterInstalled: boolean | null;
+  unisatInstalled: boolean | null;
 }
 
 export interface WalletActions {
+  checkFreighterInstalled: () => Promise<boolean>;
+  checkUnisatInstalled: () => boolean;
   connectFreighter: () => Promise<Wallet>;
   connectUniSat: () => Promise<Wallet>;
   disconnectWallet: (address: string) => void;
@@ -23,20 +27,45 @@ export interface WalletActions {
 export type WalletSlice = WalletState & WalletActions;
 
 export const createWalletSlice: StateCreator<WalletSlice> = (set, get) => ({
-  // State
   wallets: [],
   activeWallet: null,
   isConnecting: false,
   connectionError: null,
+  freighterInstalled: null,
+  unisatInstalled: null,
 
-  // Actions
+  checkFreighterInstalled: async () => {
+    try {
+      const installed = await freighterService.isInstalled();
+      set({ freighterInstalled: installed });
+      return installed;
+    } catch {
+      set({ freighterInstalled: false });
+      return false;
+    }
+  },
+
+  checkUnisatInstalled: () => {
+    const installed = typeof window !== 'undefined' && !!window.unisat;
+    set({ unisatInstalled: installed });
+    return installed;
+  },
+
   connectFreighter: async () => {
     set({ isConnecting: true, connectionError: null });
     try {
-      const wallet = await freighterService.connect();
+      // Check if installed
+      const installed = await freighterService.isInstalled();
+      if (!installed) {
+        set({ freighterInstalled: false });
+        throw new Error('Freighter wallet is not installed');
+      }
+      set({ freighterInstalled: true });
+
+      // Connect using the official API
+      const walletInfo = await freighterService.connect();
       
-      // Check if wallet already exists
-      const existingWallet = get().wallets.find(w => w.address === wallet.address);
+      const existingWallet = get().wallets.find(w => w.address === walletInfo.address);
       if (existingWallet) {
         set({ 
           activeWallet: { ...existingWallet, connected: true },
@@ -46,10 +75,10 @@ export const createWalletSlice: StateCreator<WalletSlice> = (set, get) => ({
       }
 
       const newWallet: Wallet = {
-        address: wallet.address,
+        address: walletInfo.address,
         blockchain: 'stellar',
-        balance: wallet.balance || '0',
-        publicKey: wallet.publicKey,
+        balance: walletInfo.balance || '0',
+        publicKey: walletInfo.publicKey,
         connected: true,
         type: 'freighter',
       };
@@ -58,6 +87,7 @@ export const createWalletSlice: StateCreator<WalletSlice> = (set, get) => ({
         wallets: [...state.wallets, newWallet],
         activeWallet: newWallet,
         isConnecting: false,
+        freighterInstalled: true,
       }));
 
       return newWallet;

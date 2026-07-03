@@ -14,8 +14,8 @@ export interface UniSatWallet {
   }>;
   getPublicKey: () => Promise<string>;
   signMessage: (message: string) => Promise<string>;
-  sendBitcoin?: (toAddress: string, amount: number) => Promise<string>;  // Made optional
-  getUtxos?: () => Promise<any[]>;  // Made optional
+  sendBitcoin?: (toAddress: string, amount: number) => Promise<string>;
+  getUtxos?: () => Promise<any[]>;
 }
 
 declare global {
@@ -24,7 +24,10 @@ declare global {
     unisat?: UniSatWallet;
     stellar?: {
       freighter?: FreighterWallet;
+      platform?: 'mobile' | 'extension';
     };
+    __FREIGHTER__?: FreighterWallet;
+    freighterWallet?: FreighterWallet;
   }
 }
 

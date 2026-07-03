@@ -18,10 +18,44 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
   const [showModal, setShowModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [walletType, setWalletType] = useState<'freighter' | 'unisat' | null>(null);
+  const [freighterDetected, setFreighterDetected] = useState<boolean>(false);
+  const [unisatDetected, setUnisatDetected] = useState<boolean>(false);
 
   const { isAuthenticated, user, walletLogin, logout } = useAuth();
   const { connectFreighter, connectUniSat } = useWallet();
   const { showToast } = useUI();
+
+  // Check for wallet installations on mount and periodically
+  useEffect(() => {
+    const checkWallets = async () => {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        const freighterInstalled = await freighterService.isInstalled();
+        setFreighterDetected(freighterInstalled);
+      } catch {
+        setFreighterDetected(false);
+      }
+      
+      try {
+        const unisatInstalled = unisatService.isInstalled();
+        setUnisatDetected(unisatInstalled);
+      } catch {
+        setUnisatDetected(false);
+      }
+    };
+    
+    checkWallets();
+    
+    // Recheck every 3 seconds if not detected
+    const interval = setInterval(() => {
+      if (!freighterDetected || !unisatDetected) {
+        checkWallets();
+      }
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [freighterDetected, unisatDetected]);
 
   useEffect(() => {
     const token = tokenStorage.getToken();
@@ -39,29 +73,15 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
     }
   }, [isAuthenticated, walletLogin]);
 
-  const isWalletInstalled = (type: 'freighter' | 'unisat'): boolean => {
-    if (typeof window === 'undefined') return false;
-    
-    if (type === 'freighter') {
-      // Check both window.freighter and window.stellar?.freighter
-      return !!(window.freighter || window.stellar?.freighter);
-    }
-    
-    if (type === 'unisat') {
-      return !!window.unisat;
-    }
-    
-    return false;
-  };
-
   const handleConnectFreighter = async () => {
     try {
       setIsConnecting(true);
       setErrorMessage(null);
       setWalletType('freighter');
 
-      // Check if Freighter is installed
-      if (!isWalletInstalled('freighter')) {
+      // Check if Freighter is installed using the service
+      const installed = await freighterService.isInstalled();
+      if (!installed) {
         throw new Error('Freighter wallet is not installed. Please install the Freighter extension.');
       }
 
@@ -109,8 +129,9 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
       setErrorMessage(null);
       setWalletType('unisat');
 
-      // Check if UniSat is installed
-      if (!isWalletInstalled('unisat')) {
+      // Check if UniSat is installed using the service
+      const installed = unisatService.isInstalled();
+      if (!installed) {
         throw new Error('UniSat wallet is not installed. Please install the UniSat extension.');
       }
 
@@ -205,7 +226,7 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
         )}
       </button>
 
-      {/* Wallet Selection Modal - Dark Theme */}
+      {/* Wallet Selection Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-surface rounded-2xl p-6 max-w-md w-full border border-border shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -245,7 +266,7 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
-                {!isWalletInstalled('freighter') && (
+                {!freighterDetected && (
                   <span className="text-xs text-orange-500">Not installed</span>
                 )}
               </button>
@@ -269,7 +290,7 @@ export function ConnectWallet({ onConnect, onError }: ConnectWalletProps) {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
-                {!isWalletInstalled('unisat') && (
+                {!unisatDetected && (
                   <span className="text-xs text-orange-500">Not installed</span>
                 )}
               </button>

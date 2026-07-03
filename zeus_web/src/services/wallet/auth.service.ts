@@ -1,4 +1,5 @@
 import { apiClient } from '../../services/api/client';
+import { freighterService } from './freighter';
 
 export interface NonceResponse {
   nonce: string;
@@ -213,6 +214,7 @@ export const authService = {
 
   /**
    * Sign message with wallet (Freighter or UniSat)
+   * Uses freighterService for Freighter (official API) and window.unisat for UniSat
    */
   signMessage: async (
     walletType: 'freighter' | 'unisat',
@@ -220,16 +222,20 @@ export const authService = {
     message: string
   ): Promise<string> => {
     if (walletType === 'freighter') {
-      if (typeof window === 'undefined' || !window.freighter) {
-        throw new Error('Freighter wallet is not installed');
-      }
+      // Use the official freighterService with the API
       try {
-        if (typeof window.freighter.signMessage !== 'function') {
-          throw new Error('signMessage method not available in this Freighter version');
-        }
-        return await window.freighter.signMessage(address, message);
+        return await freighterService.signMessage(address, message);
       } catch (error: any) {
-        console.error('Freighter sign error:', error);
+        console.error('Freighter sign error via service:', error);
+        // Fallback: Try direct window method if service fails
+        if (typeof window !== 'undefined' && window.freighter?.signMessage) {
+          try {
+            return await window.freighter.signMessage(address, message);
+          } catch (fallbackError) {
+            console.error('Freighter fallback sign error:', fallbackError);
+            throw new Error(error.message || 'Failed to sign with Freighter');
+          }
+        }
         throw new Error(error.message || 'Failed to sign with Freighter');
       }
     } else if (walletType === 'unisat') {
