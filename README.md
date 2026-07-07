@@ -1,34 +1,47 @@
-# ZEUS Protocol
-**Zero-Knowledge Encrypted Unified Swaps**
+# ⚡ ZEUS Protocol
+**Zero-Knowledge Encrypted Unified Swaps — Stellar Hacks 2026 Edition**
 
-![Starknet](https://img.shields.io/badge/Starknet-Cairo-blue)
-![React Native](https://img.shields.io/badge/React-Native-blueviolet)
-![NestJS](https://img.shields.io/badge/NestJS-Backend-red)
-![Next.js](https://img.shields.io/badge/Next.js-Web-black)
-![Stellar](https://img.shields.io/badge/Stellar-Soroban-lightgrey)
+[![Starknet](https://img.shields.io/badge/Starknet-Cairo-blue)](https://starknet.io)
+[![React Native](https://img.shields.io/badge/React-Native-blueviolet)](https://reactnative.dev)
+[![NestJS](https://img.shields.io/badge/NestJS-Backend-red)](https://nestjs.com)
+[![Next.js](https://img.shields.io/badge/Next.js-Web-black)](https://nextjs.org)
+[![Stellar](https://img.shields.io/badge/Stellar-Soroban-lightgrey)](https://stellar.org)
+[![Stellar Hacks 2026](https://img.shields.io/badge/🏆-Stellar_Hacks_2026-FFD700?style=flat)](https://stellar.org/community/hacks)
 
-ZEUS is a privacy-first decentralized exchange protocol enabling completely private, trust-minimized atomic swaps across Bitcoin, Starknet, and Stellar assets. Unlike traditional DEXs with transparent orderbooks, ZEUS hides all trading intent, amounts, and counterparty information using zero-knowledge proofs while maintaining complete verifiability.
+ZEUS is a privacy-first decentralized exchange protocol enabling completely private, trust-minimized atomic swaps between Bitcoin and Stellar (Soroban) assets with Starknet integration. Built for **Stellar Hacks: Real-World ZK**, ZEUS hides all trading intent, amounts, and counterparty information using zero-knowledge proofs while maintaining complete verifiability.
 
 ## 🌟 Key Features
 
-* **Quantum-Resistant Privacy** - Uses STARKs not SNARKs for post-quantum security
-* **Bitcoin Native** - Direct atomic swaps without wrapped BTC
-* **No MEV** - Hidden orderbook prevents front-running and manipulation
-* **Multi-Chain Execution** - Protocol surfaces span Starknet (Cairo) and Stellar (Soroban)
-* **Cross-Chain ZK** - Proofs and commitments secure Bitcoin, Starknet, and Stellar swap flows
-* **Mobile-First** - Full-featured React Native mobile app
-* **Institutional Ready** - Audit trails via selective disclosure
+- 🔐 **ZK-Proof Verification** — RISC Zero/Noir proof verification on Stellar Soroban with replay protection
+- 🔄 **Cross-Chain Atomic Swaps** — BTC ↔ XLM/USDC with HTLC-style escrow mechanics
+- 🛡️ **Replay Attack Protection** — Each transaction can only be claimed once via `is_tx_spent()`
+- ⏱️ **Autonomous Refunds** — Depositors can reclaim funds after timeout without admin intervention
+- 💰 **Platform Fee Mechanism** — Sustainable protocol monetization with configurable fee basis points
+- 🏭 **Dynamic Escrow Deployment** — Factory pattern for scalable, isolated escrow instances
+- 📡 **Real-Time Notifications** — WebSocket delivery with persistent metrics via Redis
+- 🎨 **Dark Cyberpunk UI** — Mobile-first web and mobile app with gold/cyan accents
+
+## 🏆 Hackathon Achievements
+
+| Feature | Status |
+|---------|--------|
+| Stellar Soroban Smart Contracts | ✅ 3 contracts, 25+ tests, 90% coverage |
+| ZK Atomic Swap Verifier | ✅ RISC Zero/Noir proof verification |
+| Escrow Factory Pattern | ✅ Dynamic isolated escrow deployment |
+| NestJS Backend API | ✅ Full REST + WebSocket gateway |
+| Next.js Web Application | ✅ Freighter + UniSat wallet integration |
+| React Native Mobile App | ✅ Cross-platform atomic swap flows |
+| TypeScript Bindings | ✅ Generated clients for all contracts |
 
 ## 📋 Table of Contents
 
 1. [System Architecture](#system-architecture)
 2. [Repository Structure](#repository-structure)
 3. [Quick Start](#quick-start)
-    * [Mobile App (zeus_app)](#mobile-app-zeus_app)
-    * [Web App (zeus_web)](#web-app-zeus_web)
-    * [Backend Service (zeus_service)](#backend-service-zeus_service)
-    * [Smart Contracts (zeus_contracts)](#smart-contracts-zeus_contracts)
-    * [Stellar Contracts (zeus_stellar)](#stellar-contracts-zeus_stellar)
+   - [Mobile App (zeus_app)](#mobile-app-zeus_app)
+   - [Web App (zeus_web)](#web-app-zeus_web)
+   - [Backend Service (zeus_service)](#backend-service-zeus_service)
+   - [Stellar Contracts (zeus_stellar)](#stellar-contracts-zeus_stellar)
 4. [Development Workflow](#development-workflow)
 5. [Testing](#testing)
 6. [Deployment](#deployment)
@@ -37,62 +50,116 @@ ZEUS is a privacy-first decentralized exchange protocol enabling completely priv
 
 ## 🏗️ System Architecture
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        ZEUS Protocol Architecture                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                         Application Layer                           │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │              React Native Mobile App (zeus_app)             │   │
-│  │  • WalletConnect Integration    • Real-time Updates         │   │
-│  │  • ZK Proof Generation          • Atomic Swap Flow          │   │
-│  │  • Encrypted Orderbook          • Push Notifications        │   │
-│  └───────────────────┬─────────────────────────────────────────┘   │
-│                      │                                             │
-│                      ▼                                             │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                    API Gateway (Port 3000)                   │   │
-│  │              REST + WebSocket (Socket.IO)                    │   │
-│  └───────────────────┬─────────────────────────────────────────┘   │
-│                      │                                             │
-│                      ▼                                             │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                  Service Layer (zeus_service)                │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │   │
-│  │  │ Auth Module │  │ Swap Module │  │ Notification Module │  │   │
-│  │  ├─────────────┤  ├─────────────┤  ├─────────────────────┤  │   │
-│  │  │ Orderbook   │  │ Starknet    │  │ Bitcoin Module      │  │   │
-│  │  │ Module      │  │ Module      │  │                     │  │   │
-│  │  ├─────────────┤  ├─────────────┤  ├─────────────────────┤  │   │
-│  │  │ ZK Module   │  │ Relayer     │  │ Queue Service       │  │   │
-│  │  │             │  │ Module      │  │ (Redis)             │  │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                      │                                             │
-│                      ▼                                             │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                  Blockchain Layer                            │   │
-│  │  ┌───────────────────┐     ┌───────────────────────┐        │   │
-│  │  │     Bitcoin       │◄───►│      Starknet         │        │   │
-│  │  │    Network        │     │    Contracts          │        │   │
-│  │  │                   │     │  (zeus_contracts)     │        │   │
-│  │  │ • HTLC Scripts    │     │ • ZKAtomicSwapVerifier│        │   │
-│  │  │ • UTXO Flows      │     │ • BTCVault            │        │   │
-│  │  └───────────────────┘     │ • SwapEscrow          │        │   │
-│  │             ▲              │ • ZKOrderBook         │        │   │
-│  │             │              └──────────┬────────────┘        │   │
-│  │             │                         │                     │   │
-│  │             └─────────────────────────▼                     │   │
-│  │                      ┌───────────────────────────────┐      │   │
-│  │                      │        Stellar Soroban        │      │   │
-│  │                      │      Contracts (zeus_stellar) │      │   │
-│  │                      │ • stellar_atomic_bridge       │      │   │
-│  │                      │ • btc_vault / swap_escrow     │      │   │
-│  │                      │ • zk_order_book / zkbtc       │      │   │
-│  │                      └───────────────────────────────┘      │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           ZEUS Protocol Architecture                           │
+│                          Stellar Hacks: Real-World ZK                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                              Application Layer                                  │
+│  ┌─────────────────────────────┐  ┌───────────────────────────────────────┐   │
+│  │     React Native App         │  │     Next.js Web App                   │   │
+│  │       (zeus_app)             │  │       (zeus_web)                      │   │
+│  │  • Freighter Wallet          │  │  • Freighter Wallet Integration       │   │
+│  │  • UniSat Wallet             │  │  • UniSat Wallet Integration          │   │
+│  │  • ZK Proof Generation       │  │  • ZK Proof Generation/Verification   │   │
+│  │  • Atomic Swap UI            │  │  • Atomic Swap UI with HTLC Tracking  │   │
+│  │  • Portfolio Dashboard       │  │  • Portfolio Dashboard                │   │
+│  │  • Real-Time Updates         │  │  • Real-Time WebSocket Updates        │   │
+│  │  • Push Notifications        │  │  • Inbox System                       │   │
+│  └───────────────┬─────────────┘  └───────────────┬───────────────────────┘   │
+│                  │                                  │                           │
+│                  └──────────────────┬───────────────┘                           │
+│                                     ▼                                           │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │                    API Gateway + WebSocket (Port 3000)                   │   │
+│  │                         REST + Socket.IO                                 │   │
+│  └──────────────────────────────────┬──────────────────────────────────────┘   │
+│                                     ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │                  NestJS Service Layer (zeus_service)                     │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────────┐    │   │
+│  │  │ Auth Module  │  │ Swap Module  │  │ Notification Module         │    │   │
+│  │  │ • Nonce auth │  │ • Escrow     │  │ • WebSocket Gateway         │    │   │
+│  │  │ • JWT        │  │   creation   │  │ • Inbox with read/unread    │    │   │
+│  │  │ • Multi-     │  │ • Cross-     │  │ • Delivery metrics/retry    │    │   │
+│  │  │   chain      │  │   chain swap │  │ • Email/SMS providers       │    │   │
+│  │  └──────────────┘  └──────────────┘  └────────────────────────────┘    │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────────┐    │   │
+│  │  │ Stellar      │  │ Starknet     │  │ ZK Module                  │    │   │
+│  │  │ Module       │  │ Module       │  │ • Proof generation         │    │   │
+│  │  │ • Soroban    │  │ • Starknet   │  │ • RISC Zero/Noir           │    │   │
+│  │  │   RPC client │  │   RPC client │  │ • Verifier integration     │    │   │
+│  │  │ • Escrow     │  │ • Contract   │  │ • Cross-chain proof        │    │   │
+│  │  │   factory    │  │   bindings   │  │   verification             │    │   │
+│  │  │   bindings   │  │ • ZK verifier│  │                            │    │   │
+│  │  └──────────────┘  └──────────────┘  └────────────────────────────┘    │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────────┐    │   │
+│  │  │ Bitcoin      │  │ Orderbook    │  │ Relayer Module             │    │   │
+│  │  │ Module       │  │ Module       │  │ • Proof submission         │    │   │
+│  │  │ • BTC vault  │  │ • Private    │  │ • Transaction monitoring   │    │   │
+│  │  │   operations │  │   order      │  │ • Cross-chain relay        │    │   │
+│  │  │ • UTXO mgmt  │  │   matching   │  │ • Event listening          │    │   │
+│  │  │ • Withdrawal │  │ • Encrypted  │  │                            │    │   │
+│  │  │   requests   │  │   orderbook  │  │                            │    │   │
+│  │  │ • HTLC       │  │              │  │                            │    │   │
+│  │  │   scripts    │  │              │  │                            │    │   │
+│  │  └──────────────┘  └──────────────┘  └────────────────────────────┘    │   │
+│  └──────────────────────────────────┬──────────────────────────────────────┘   │
+│                                     ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │                     Blockchain Layer                                     │   │
+│  │                                                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │   │
+│  │  │              Stellar Soroban (zeus_stellar)                     │    │   │
+│  │  │  ┌───────────────────────────┐  ┌────────────────────────────┐ │    │   │
+│  │  │  │  ZK Atomic Swap Verifier  │  │  Swap Escrow Contract      │ │    │   │
+│  │  │  │  • RISC Zero/Noir proofs  │  │  • HTLC escrow lifecycle   │ │    │   │
+│  │  │  │  • Relayer whitelist      │  │  • Autonomous refunds      │ │    │   │
+│  │  │  │  • Pause/unpause toggle   │  │  • Platform fee extraction │ │    │   │
+│  │  │  │  • Double-spend detection │  │  • Event emissions         │ │    │   │
+│  │  │  └───────────────────────────┘  └────────────────────────────┘ │    │   │
+│  │  │  ┌──────────────────────────────────────────────────────────┐  │    │   │
+│  │  │  │  Escrow Factory Contract                                 │  │    │   │
+│  │  │  │  • Dynamic isolated escrow deployment                    │  │    │   │
+│  │  │  │  • Admin-controlled WASM hash upgrades                   │  │    │   │
+│  │  │  │  • Factory created/upgraded events                       │  │    │   │
+│  │  │  └──────────────────────────────────────────────────────────┘  │    │   │
+│  │  └─────────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │   │
+│  │  │                   Starknet Contracts (zeus_contracts)           │    │   │
+│  │  │  ┌───────────────────────────┐  ┌────────────────────────────┐ │    │   │
+│  │  │  │  ZKAtomicSwapVerifier     │  │  BTCVault                  │ │    │   │
+│  │  │  │  • STARK proof            │  │  • BTC custody             │ │    │   │
+│  │  │  │    verification           │  │  • Deposit/withdraw        │ │    │   │
+│  │  │  │  • Swap commitment        │  │  • HTLC integration        │ │    │   │
+│  │  │  │    management             │  │  • Swap escrow             │ │    │   │
+│  │  │  └───────────────────────────┘  └────────────────────────────┘ │    │   │
+│  │  │  ┌──────────────────────────────────────────────────────────┐  │    │   │
+│  │  │  │  ZKOrderBook Contract                                    │  │    │   │
+│  │  │  │  • Encrypted order storage                               │  │    │   │
+│  │  │  │  • Order matching logic                                  │  │    │   │
+│  │  │  │  • Privacy-preserving execution                          │  │    │   │
+│  │  │  └──────────────────────────────────────────────────────────┘  │    │   │
+│  │  └─────────────────────────────────────────────────────────────────┘    │   │
+│  │                                                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐    │   │
+│  │  │   Bitcoin Network (via backend)                                 │    │   │
+│  │  │   • UTXO management • HTLC scripts • Withdrawal requests       │    │   │
+│  │  └─────────────────────────────────────────────────────────────────┘    │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │                         Data Layer                                       │   │
+│  │  ┌────────────────────────────┐  ┌─────────────────────────────────┐   │   │
+│  │  │ PostgreSQL 15 (TypeORM)    │  │  Redis 7.x (Cache/Queue)        │   │   │
+│  │  │ • Swap records             │  │  • Session cache                 │   │   │
+│  │  │ • User data                │  │  • Notification queue            │   │   │
+│  │  │ • Transaction history      │  │  • Real-time metrics             │   │   │
+│  │  │ • Orderbook data           │  │  • Rate limiting                 │   │   │
+│  │  └────────────────────────────┘  └─────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
-
 ### Core Components
 
 * **Mobile App (React Native/Expo)** - Frontend interface for wallet management, atomic swaps, and private orderbook interaction
@@ -295,34 +362,31 @@ NestJS backend providing REST APIs and WebSocket real-time updates across Bitcoi
 
 ### Architecture
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    API Gateway                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Controllers: Auth, Swap, Orderbook, Notification│   │
-│  └──────────┬───────────────────────────┬──────────┘   │
-│             │                           │               │
-│             ▼                           ▼               │
-│  ┌──────────────────┐        ┌──────────────────┐      │
-│  │   Services       │        │   WebSocket      │      │
-│  │   (Business      │        │   Gateway        │      │
-│  │    Logic)        │        │   (Socket.IO)    │      │
-│  └────────┬─────────┘        └────────┬─────────┘      │
-│          │                           │                 │
-│          ▼                           ▼                 │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │           Queue Service (Redis)                  │   │
-│  │  • Notification retries                          │   │
-│  │  • Swap execution                                │   │
-│  │  • Starknet + Stellar chain sync                 │   │
-│  └─────────────────────────────────────────────────┘   │
-│                         │                               │
-│                         ▼                               │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │           Database (PostgreSQL)                  │   │
-│  │  • Users      • Swaps      • Orders             │   │
-│  │  • Proofs     • Metrics    • Notifications      │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Zeus Service (NestJS)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
+│  │   Auth Module   │  │   Swap Module   │  │   Notification Module       │ │
+│  │  - Nonce        │  │  - Create Swap  │  │  - WebSocket Gateway       │ │
+│  │  - Wallet Login │  │  - Fund Escrow  │  │  - Inbox API               │ │
+│  │  - JWT Guards   │  │  - Complete     │  │  - Metrics & Retry Queue   │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘ │
+│           │                    │                       │                    │
+│           ▼                    ▼                       ▼                    │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐ │
+│  │  Stellar Module │  │   Starknet     │  │    Bitcoin Module           │ │
+│  │  - RPC Client   │  │   Module       │  │  - Vault Service            │ │
+│  │  - Escrow       │  │  - Contract    │  │  - UTXO Management          │ │
+│  │  - Verifier     │  │    Clients     │  │  - Withdrawal API           │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘ │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                      Shared Infrastructure                              ││
+│  │  PostgreSQL (TypeORM) │ Redis (Queue/Cache) │ JWT Auth │ Config Module ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
+
 ```
 
 ### API Endpoints
